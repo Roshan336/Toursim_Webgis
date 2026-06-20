@@ -1069,6 +1069,43 @@ function setupUIEventListeners() {
   });
 
   // Initialize GeoJSON layer and GIS selection listeners
+  // Add a collapse/expand toggle for the floating GIS panel (keeps HTML untouched — injects button at runtime)
+  (function initGisPanelToggle() {
+    const gisContainer = document.getElementById('gis-panel-container');
+    if (!gisContainer) return;
+    const card = gisContainer.querySelector('calcite-card');
+    if (!card) return;
+    card.id = 'gis-panel-card';
+
+    // append toggle button to header
+    const header = card.querySelector('.basemap-card-header');
+    if (header) {
+      const btn = document.createElement('calcite-button');
+      btn.id = 'btn-toggle-gis-panel';
+      btn.setAttribute('appearance', 'transparent');
+      btn.setAttribute('icon-start', 'chevron-up');
+      btn.setAttribute('scale', 's');
+      btn.textContent = ' Hide GIS';
+      btn.style.marginLeft = '8px';
+      header.appendChild(btn);
+
+      const content = card.querySelector('.basemap-card-content');
+      if (content) content.id = 'gis-panel-content';
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!content) return;
+        const collapsed = content.classList.toggle('hidden');
+        // update icon & label
+        btn.icon = collapsed ? 'chevron-down' : 'chevron-up';
+        btn.textContent = collapsed ? ' Show GIS' : ' Hide GIS';
+        // compact the card when collapsed
+        card.style.width = collapsed ? '56px' : '320px';
+        card.style.transition = 'width 180ms ease-in-out';
+      });
+    }
+  })();
+
   setupGeoJsonUIEventListeners();
 }
 
