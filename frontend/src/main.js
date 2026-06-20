@@ -107,6 +107,7 @@ let map, view;
 let categoryLayers = {}; // category code → GraphicsLayer
 let routeGraphicsLayer, tempGraphicsLayer, overpassGraphicsLayer;
 let provinceGraphicsLayer, districtGraphicsLayer, gapanapaGraphicsLayer, selectionGraphicsLayer, isochronesGraphicsLayer;
+let highlightGraphicsLayer; // hover/highlight
 let allPois = [];
 let overpassPois = [];
 let routingStartCoords = null; // [lon, lat]
@@ -161,6 +162,7 @@ function initMap() {
   routeGraphicsLayer = new GraphicsLayer({ id: "route-layer" });
   tempGraphicsLayer = new GraphicsLayer({ id: "temp-layer" });
   overpassGraphicsLayer = new GraphicsLayer({ id: "overpass-layer" });
+  highlightGraphicsLayer = new GraphicsLayer({ id: "highlight-layer", listMode: "hide" });
 
   CATEGORY_CODES.forEach((code) => {
     categoryLayers[code] = new GraphicsLayer({
@@ -182,6 +184,7 @@ function initMap() {
       routeGraphicsLayer,
       tempGraphicsLayer,
       overpassGraphicsLayer,
+      highlightGraphicsLayer,
       ...CATEGORY_CODES.map((code) => categoryLayers[code]),
     ]
   });
@@ -206,6 +209,8 @@ function initMap() {
   // Map Listeners
   // Single click: handle buffer center selection or routing point selection
   view.on("click", (event) => {
+    // clear any hover highlight when clicking to avoid stale highlight
+    if (highlightGraphicsLayer) highlightGraphicsLayer.removeAll();
     const lat = event.mapPoint.latitude;
     const lon = event.mapPoint.longitude;
 
@@ -254,6 +259,42 @@ function initMap() {
   view.on("double-click", (event) => {
     event.stopPropagation(); // prevent default zoom
     openAddPoiModal(event.mapPoint.longitude, event.mapPoint.latitude);
+  });
+
+  // Hover highlight for POIs (interactive symbols)
+  view.on("pointer-move", async (evt) => {
+    try {
+      const hit = await view.hitTest(evt);
+      if (!hit || !hit.results || hit.results.length === 0) {
+        highlightGraphicsLayer.removeAll();
+        return;
+      }
+      // find first graphic that belongs to category layers
+      const poiResult = hit.results.find(r => r.graphic && r.graphic.layer && r.graphic.layer.id && r.graphic.attributes && r.graphic.attributes.id);
+      if (!poiResult) {
+        highlightGraphicsLayer.removeAll();
+        return;
+      }
+      const g = poiResult.graphic;
+      // Only highlight if different
+      const existing = highlightGraphicsLayer.graphics.getLength() > 0 ? highlightGraphicsLayer.graphics.getItemAt(0) : null;
+      if (existing && existing.attributes && existing.attributes.id === g.attributes.id) return;
+
+      highlightGraphicsLayer.removeAll();
+      const cat = g.attributes.category || 'attraction';
+      const hSymbol = {
+        type: 'simple-marker',
+        style: 'circle',
+        color: hexToRgb(categoryMeta.colors?.[cat] || CATEGORY_COLORS[cat] || '#2980B9').concat(0.95),
+        size: '28px',
+        outline: { color: [255,255,255,0.95], width: 3 }
+      };
+      const hoverGraphic = new Graphic({ geometry: g.geometry, symbol: hSymbol, attributes: g.attributes });
+      highlightGraphicsLayer.add(hoverGraphic);
+    } catch (e) {
+      // on error, clear highlight
+      highlightGraphicsLayer.removeAll();
+    }
   });
 }
 
@@ -340,7 +381,7 @@ function renderPOIsOnMap(features) {
     });
 
     const markerSize = category === "heritage" ? 34 : 28;
-    const markerSymbol = getCategorySymbol(category, markerSize);
+    const markerSymbol = makePoiSymbol(category, markerSize);
 
     const popupTemplate = {
       title: `{name}`,
@@ -561,6 +602,33 @@ function formatDuration(seconds) {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return remainingMinutes ? `${hours} hr ${remainingMinutes} min` : `${hours} hr`;
+}
+
+// helper: make POI symbol according to selected style
+let poiSymbolStyle = 'pin'; // 'pin'|'circle'|'dot'
+function makePoiSymbol(category, size = 30) {
+  if (poiSymbolStyle === 'circle') {
+    const rgb = hexToRgb(categoryMeta.colors?.[category] || CATEGORY_COLORS[category] || '#2980B9');
+    return {
+      type: 'simple-marker',
+      style: 'circle',
+      color: [...rgb, 0.95],
+      size: `${Math.round(size * 0.8)}px`,
+      outline: { color: [255,255,255,0.95], width: 2 }
+    };
+  }
+  if (poiSymbolStyle === 'dot') {
+    const rgb = hexToRgb(categoryMeta.colors?.[category] || CATEGORY_COLORS[category] || '#2980B9');
+    return {
+      type: 'simple-marker',
+      style: 'circle',
+      color: [...rgb, 0.95],
+      size: `${Math.round(size * 0.5)}px`,
+      outline: { color: [255,255,255,0.95], width: 1.2 }
+    };
+  }
+  // default: svg pin picture
+  return getCategorySymbol(category, size);
 }
 
 // 9. Handle Buffer selection and PostGIS spatial execution
@@ -1268,6 +1336,16 @@ function updateRouteTempMarkers() {
 // ═══════════════════════════════════════════════════════════════════
 
 function setupGeoJsonUIEventListeners() {
+  // Symbol style selector hookup
+  const symbolSelect = document.getElementById('symbol-style-select');
+  if (symbolSelect) {
+    symbolSelect.addEventListener('calciteSelectChange', (e) => {
+      poiSymbolStyle = e.target.value || 'pin';
+      // re-render POIs preserving current filters
+      const term = document.getElementById('poi-search').value.toLowerCase().trim();
+      filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
+    });
+  }
   // 1. Layer Toggles
   document.getElementById("chk-layer-province").addEventListener("calciteSwitchChange", async (e) => {
     const checked = e.target.checked;

@@ -592,6 +592,16 @@
               </calcite-label>
             </div>
 
+            <!-- Point symbol style selector -->
+            <div class="form-group mt-6">
+              <label for="symbol-style-select">Point Symbol Style</label>
+              <calcite-select id="symbol-style-select" name="symbol_style" width="full" aria-label="Select point symbol style">
+                <calcite-option value="pin" selected>SVG Pin (default)</calcite-option>
+                <calcite-option value="circle">Colored Circle</calcite-option>
+                <calcite-option value="dot">Compact Dot</calcite-option>
+              </calcite-select>
+            </div>
+
             <hr />
 
             <!-- Identify -->
