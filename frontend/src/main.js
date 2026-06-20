@@ -938,7 +938,7 @@ function setupUIEventListeners() {
       actions.forEach(act => act.removeAttribute("active"));
       targetAction.setAttribute("active", "");
 
-      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-live", "panel-upload", "panel-geojson", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
+      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-live", "panel-upload", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
       panels.forEach(pId => {
         const panel = document.getElementById(pId);
         if (pId === panelId) {
