@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TourGIS - Interactive San Francisco tourism map powered by ArcGIS, PostGIS and pgRouting" />
+    <title>TourGIS - San Francisco Tourism Web GIS</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="calcite-theme-light calcite-mode-light">
+
+    <!-- LAYER 0: ArcGIS Map (lives outside shell so the SDK can append UI widgets safely) -->
+    <div id="viewDiv" role="application" aria-label="Interactive San Francisco tourism map"></div>
+
+    <!-- LAYER 1: Calcite Shell (floats over the map via position:fixed) -->
+    <calcite-shell content-behind>
+      <!-- Navigation Header -->
+      <calcite-navigation slot="header" aria-label="TourGIS application navigation">
+        <calcite-navigation-logo
+          slot="logo"
+          heading="TourGIS"
+          description="Explore San Francisco - Powered by ArcGIS &amp; PostGIS"
+          thumbnail="https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=100"
+          aria-label="TourGIS - San Francisco tourism application">
+        </calcite-navigation-logo>
+
+        <calcite-navigation-right slot="navigation-right">
+          <calcite-chip icon="globe" kind="brand" aria-label="SF Downtown Network indicator">SF Downtown Network</calcite-chip>
+          <calcite-action id="theme-toggle" class="theme-toggle-action" text="Toggle light/dark theme" icon="moon" aria-label="Toggle light and dark theme"></calcite-action>
+        </calcite-navigation-right>
+      </calcite-navigation>
+
+      <!-- Sidebar Panel -->
+      <calcite-shell-panel slot="panel-start" display-mode="float" aria-label="Analysis tools sidebar">
+        <!-- Action Bar -->
+        <calcite-action-bar slot="action-bar" id="sidebar-action-bar" aria-label="Sidebar panel navigation">
+          <calcite-action id="action-pois" text="Points of Interest" icon="tour" active aria-label="Show Points of Interest panel"></calcite-action>
+          <calcite-action id="action-routing" text="Routing" icon="road-sign" aria-label="Show routing panel"></calcite-action>
+          <calcite-action id="action-buffer" text="Buffer Analysis" icon="circle-area" aria-label="Show buffer analysis panel"></calcite-action>
+          <calcite-action id="action-upload" text="Upload Shapefile" icon="upload-to" aria-label="Show shapefile upload panel"></calcite-action>
+          <calcite-action id="action-arcgis" text="ArcGIS Online Search" icon="search" aria-label="Show ArcGIS Online search panel"></calcite-action>
+        </calcite-action-bar>
+
+        <!-- Tab 1: POIs List -->
+        <calcite-panel heading="Points of Interest" id="panel-pois">
+          <div class="panel-content">
+            <calcite-input
+              id="poi-search"
+              name="poi_search"
+              placeholder="Search attractions, hotels, parks..."
+              icon="search"
+              clearable
+              aria-label="Search points of interest by name, address or description">
+            </calcite-input>
+
+            <div class="filter-chips" role="group" aria-label="Filter by category">
+              <calcite-chip value="all" class="filter-chip" active kind="neutral" aria-label="Show all categories">All</calcite-chip>
+              <calcite-chip value="attraction" class="filter-chip" kind="neutral" aria-label="Filter attractions">Attractions</calcite-chip>
+              <calcite-chip value="hotel" class="filter-chip" kind="neutral" aria-label="Filter hotels">Hotels</calcite-chip>
+              <calcite-chip value="restaurant" class="filter-chip" kind="neutral" aria-label="Filter restaurants">Restaurants</calcite-chip>
+              <calcite-chip value="park" class="filter-chip" kind="neutral" aria-label="Filter parks">Parks</calcite-chip>
+            </div>
+
+            <calcite-list id="pois-list" aria-label="List of points of interest">
+              <!-- Dynamically populated -->
+            </calcite-list>
+          </div>
+        </calcite-panel>
+
+        <!-- Tab 2: pgRouting Planner -->
+        <calcite-panel heading="pgRouting Planner" id="panel-routing" closed>
+          <div class="panel-content">
+            <calcite-notice open aria-label="Routing instructions">
+              <div slot="message">Click two points on the map or select from the dropdowns below to calculate the shortest path.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="route-start-select">Start Location</label>
+              <calcite-select id="route-start-select" name="route_start" aria-label="Select route start location">
+                <calcite-option value="" selected>-- Select Start POI --</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="route-end-select">End Location</label>
+              <calcite-select id="route-end-select" name="route_end" aria-label="Select route end location">
+                <calcite-option value="" selected>-- Select End POI --</calcite-option>
+              </calcite-select>
+            </div>
+
+            <calcite-button id="btn-calculate-route" width="full" appearance="solid" kind="brand" icon-start="route-to" aria-label="Calculate shortest path between selected locations">
+              Find Shortest Path
+            </calcite-button>
+
+            <calcite-button id="btn-clear-route" class="mt-8" width="full" appearance="outline" kind="neutral" aria-label="Clear the calculated route from the map">
+              Clear Route
+            </calcite-button>
+
+            <div id="route-results-container" class="results-container" aria-live="polite" aria-label="Route calculation results">
+              <h4 id="route-distance-title" class="section-title">Total Distance: 0m</h4>
+              <calcite-list id="route-directions-list" class="directions-list" aria-label="Step-by-step route directions">
+                <!-- Dynamically populated step directions -->
+              </calcite-list>
+            </div>
+          </div>
+        </calcite-panel>
+
+        <!-- Tab 3: PostGIS Buffer Analysis -->
+        <calcite-panel heading="PostGIS Buffer Tool" id="panel-buffer" closed>
+          <div class="panel-content">
+            <calcite-notice open aria-label="Buffer tool instructions">
+              <div slot="message">Click on a POI or double-click anywhere on the map, set a buffer radius, and find all nearby attractions.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="buffer-center-display">Selected Center</label>
+              <calcite-input
+                id="buffer-center-display"
+                name="buffer_center"
+                placeholder="Click map to set center..."
+                read-only
+                aria-label="Buffer analysis center point coordinates"
+                aria-readonly="true">
+              </calcite-input>
+            </div>
+
+            <div class="form-group">
+              <label for="buffer-distance">Radius (meters)</label>
+              <calcite-slider
+                id="buffer-distance"
+                name="buffer_radius"
+                min="50"
+                max="2000"
+                value="500"
+                step="50"
+                label-handles
+                aria-label="Buffer radius in meters, range 50 to 2000">
+              </calcite-slider>
+            </div>
+
+            <calcite-button id="btn-run-buffer" width="full" appearance="solid" kind="brand" icon-start="circle-area" aria-label="Run spatial buffer analysis query">
+              Run Buffer Query
+            </calcite-button>
+
+            <div id="buffer-results-container" class="results-container" aria-live="polite" aria-label="Buffer analysis results">
+              <h4 id="buffer-count-title" class="section-title">Found 0 items</h4>
+              <calcite-list id="buffer-results-list" aria-label="Points of interest within buffer radius">
+                <!-- Dynamically populated buffer list -->
+              </calcite-list>
+            </div>
+          </div>
+        </calcite-panel>
+
+        <!-- Tab 4: Shapefile Importer -->
+        <calcite-panel heading="Import Shapefile (ArcGIS SDK)" id="panel-upload" closed>
+          <div class="panel-content">
+            <calcite-notice open aria-label="Shapefile upload instructions">
+              <div slot="message">Upload a shapefile ZIP archive (containing .shp, .shx, .dbf, .prj) to import it as a PostGIS table using the ArcGIS Python SDK.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="upload-table-name">Target Table Name</label>
+              <calcite-input
+                id="upload-table-name"
+                name="table_name"
+                placeholder="e.g. sf_tourist_spots"
+                value="sf_imported_spots"
+                required
+                aria-label="PostgreSQL target table name for imported shapefile"
+                aria-required="true">
+              </calcite-input>
+            </div>
+
+            <div class="form-group">
+              <label for="upload-file-input">Shapefile ZIP File</label>
+              <input
+                type="file"
+                id="upload-file-input"
+                name="shapefile"
+                accept=".zip"
+                class="file-input-field"
+                aria-label="Select a ZIP file containing the shapefile components (.shp, .shx, .dbf, .prj)" />
+            </div>
+
+            <calcite-button id="btn-upload-shp" width="full" appearance="solid" kind="brand" icon-start="upload-to" aria-label="Upload and process shapefile into PostGIS">
+              Upload and Process
+            </calcite-button>
+
+            <div id="upload-loader-container" class="loader-container" aria-live="polite">
+              <calcite-loader text="Processing shapefile with ArcGIS Python SDK..." aria-label="Processing shapefile, please wait..."></calcite-loader>
+            </div>
+
+            <div id="upload-result-notice" class="result-notice" aria-live="polite">
+              <!-- Dynamically populated upload notice -->
+            </div>
+          </div>
+        </calcite-panel>
+
+        <!-- Tab 5: ArcGIS Online search -->
+        <calcite-panel heading="ArcGIS Online Explorer" id="panel-arcgis" closed>
+          <div class="panel-content">
+            <calcite-notice open aria-label="ArcGIS Online search instructions">
+              <div slot="message">Query the ArcGIS Location Platform using python GIS module for matching tourism layers.</div>
+            </calcite-notice>
+
+            <calcite-input
+              id="arcgis-search-input"
+              name="arcgis_query"
+              placeholder="Search query (e.g. San Francisco tourism)..."
+              value="tourism San Francisco"
+              icon="search"
+              aria-label="Search query for ArcGIS Online tourism layers">
+            </calcite-input>
+
+            <calcite-button id="btn-arcgis-search" class="mt-8" width="full" appearance="solid" kind="brand" icon-start="search" aria-label="Search for matching ArcGIS Online layers">
+              Search Layers
+            </calcite-button>
+
+            <div id="arcgis-loader-container" class="loader-container" aria-live="polite">
+              <calcite-loader text="Searching ArcGIS Online..." aria-label="Searching ArcGIS Online, please wait..."></calcite-loader>
+            </div>
+
+            <calcite-list id="arcgis-results-list" class="arcgis-results" aria-label="ArcGIS Online search results" aria-live="polite">
+              <!-- Dynamically populated search results -->
+            </calcite-list>
+          </div>
+        </calcite-panel>
+      </calcite-shell-panel>
+
+    </calcite-shell>
+
+    <!-- LAYER 2: Floating Basemap Selector -->
+    <div id="basemap-selector-container" class="map-overlay-card" role="complementary" aria-label="Basemap style selector">
+      <calcite-card style="--calcite-card-padding: 0px;">
+        <div slot="header" class="basemap-card-header">
+          <calcite-icon icon="map" size="s" aria-hidden="true"></calcite-icon>
+          <span class="basemap-card-label">Basemap</span>
+        </div>
+        <div class="basemap-card-content">
+          <calcite-select id="basemap-select" name="basemap" aria-label="Select map basemap style" width="full">
+            <calcite-option value="osm" selected>OpenStreetMap (Default)</calcite-option>
+            <calcite-option value="streets-vector">Streets</calcite-option>
+            <calcite-option value="topo-vector">Topographic</calcite-option>
+            <calcite-option value="gray-vector">Light Gray Canvas</calcite-option>
+            <calcite-option value="dark-gray-vector">Dark Gray Canvas</calcite-option>
+            <calcite-option value="satellite">Satellite Imagery</calcite-option>
+            <calcite-option value="hybrid">Hybrid (Imagery + Labels)</calcite-option>
+            <calcite-option value="oceans">Oceans</calcite-option>
+          </calcite-select>
+        </div>
+      </calcite-card>
+    </div>
+
+    <!-- LAYER 3: Add POI Dialog -->
+    <calcite-dialog id="add-poi-modal" heading="Add New Tourist Attraction" modal width-scale="m" aria-label="Add new point of interest dialog">
+      <calcite-notice open kind="brand" class="dialog-notice" aria-label="Dialog instructions">
+        <div slot="message">Configure your custom location details. Geometry is captured from your click.</div>
+      </calcite-notice>
+
+      <div class="form-group">
+        <label for="new-poi-name">Attraction Name *</label>
+        <calcite-input
+          id="new-poi-name"
+          name="poi_name"
+          placeholder="e.g. Lombard Street Cafe"
+          required
+          aria-label="Attraction name (required)"
+          aria-required="true">
+        </calcite-input>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-category">Category *</label>
+        <calcite-select id="new-poi-category" name="poi_category" aria-label="Point of interest category">
+          <calcite-option value="attraction" selected>Attraction</calcite-option>
+          <calcite-option value="hotel">Hotel</calcite-option>
+          <calcite-option value="restaurant">Restaurant</calcite-option>
+          <calcite-option value="park">Park</calcite-option>
+        </calcite-select>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-rating">Rating (0 - 5)</label>
+        <calcite-slider
+          id="new-poi-rating"
+          name="poi_rating"
+          min="0"
+          max="5"
+          value="4.5"
+          step="0.1"
+          label-handles
+          aria-label="Point of interest rating from 0 to 5 stars">
+        </calcite-slider>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-address">Address</label>
+        <calcite-input
+          id="new-poi-address"
+          name="poi_address"
+          placeholder="e.g. 100 Lombard St"
+          aria-label="Street address of the attraction">
+        </calcite-input>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-image">Image URL</label>
+        <calcite-input
+          id="new-poi-image"
+          name="poi_image"
+          placeholder="https://images.unsplash.com/..."
+          aria-label="Image URL for the attraction (optional)">
+        </calcite-input>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-desc">Description</label>
+        <calcite-text-area
+          id="new-poi-desc"
+          name="poi_description"
+          placeholder="Write a short description for tourists..."
+          aria-label="Short description of the attraction for tourists">
+        </calcite-text-area>
+      </div>
+
+      <div class="coords-display" aria-label="Captured map coordinates">
+        <span><strong>Longitude:</strong> <span id="new-poi-lon-lbl" aria-live="polite">0</span></span>
+        <span><strong>Latitude:</strong> <span id="new-poi-lat-lbl" aria-live="polite">0</span></span>
+      </div>
+
+      <!-- Footer buttons -->
+      <calcite-button id="btn-save-poi" slot="footer-end" appearance="solid" kind="brand" icon-start="save" aria-label="Save new point of interest to database">Save Location</calcite-button>
+      <calcite-button id="btn-cancel-poi" slot="footer-start" appearance="outline" kind="neutral" aria-label="Cancel and close dialog">Cancel</calcite-button>
+    </calcite-dialog>
+
+    <!-- Toast Alerts -->
+    <calcite-alert id="app-alert" auto-close duration="slow" icon="information" kind="brand" aria-live="polite">
+      <div slot="title" id="alert-title">Notification</div>
+      <div slot="message" id="alert-message">Action processed successfully.</div>
+    </calcite-alert>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
