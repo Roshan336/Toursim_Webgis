@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="TourGIS - Interactive San Francisco tourism map powered by ArcGIS, PostGIS and pgRouting" />
-    <title>TourGIS - San Francisco Tourism Web GIS</title>
+    <meta name="description" content="TourGIS - Interactive Kathmandu Valley tourism map powered by ArcGIS, PostGIS, pgRouting and OpenRouteService. Explore UNESCO heritage sites, temples, parks and more across Kathmandu, Lalitpur and Bhaktapur." />
+    <title>TourGIS - Kathmandu Valley Tourism Web GIS</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,23 +13,23 @@
   </head>
   <body class="calcite-theme-light calcite-mode-light">
 
-    <!-- LAYER 0: ArcGIS Map (lives outside shell so the SDK can append UI widgets safely) -->
-    <div id="viewDiv" role="application" aria-label="Interactive San Francisco tourism map"></div>
+    <!-- LAYER 0: ArcGIS Map -->
+    <div id="viewDiv" role="application" aria-label="Interactive Kathmandu Valley tourism map"></div>
 
-    <!-- LAYER 1: Calcite Shell (floats over the map via position:fixed) -->
+    <!-- LAYER 1: Calcite Shell -->
     <calcite-shell content-behind>
       <!-- Navigation Header -->
       <calcite-navigation slot="header" aria-label="TourGIS application navigation">
         <calcite-navigation-logo
           slot="logo"
           heading="TourGIS"
-          description="Explore San Francisco - Powered by ArcGIS &amp; PostGIS"
-          thumbnail="https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=100"
-          aria-label="TourGIS - San Francisco tourism application">
+          description="Explore Kathmandu Valley — Powered by ArcGIS &amp; PostGIS"
+          thumbnail="https://images.unsplash.com/photo-1544736779-a33698e1e73a?w=100"
+          aria-label="TourGIS - Kathmandu Valley tourism application">
         </calcite-navigation-logo>
 
         <calcite-navigation-right slot="navigation-right">
-          <calcite-chip icon="globe" kind="brand" aria-label="SF Downtown Network indicator">SF Downtown Network</calcite-chip>
+          <calcite-chip icon="globe" kind="brand" aria-label="Kathmandu Valley Network indicator">Kathmandu Valley</calcite-chip>
           <calcite-action id="theme-toggle" class="theme-toggle-action" text="Toggle light/dark theme" icon="moon" aria-label="Toggle light and dark theme"></calcite-action>
         </calcite-navigation-right>
       </calcite-navigation>
@@ -38,31 +38,51 @@
       <calcite-shell-panel slot="panel-start" display-mode="float" aria-label="Analysis tools sidebar">
         <!-- Action Bar -->
         <calcite-action-bar slot="action-bar" id="sidebar-action-bar" aria-label="Sidebar panel navigation">
-          <calcite-action id="action-pois" text="Points of Interest" icon="tour" active aria-label="Show Points of Interest panel"></calcite-action>
-          <calcite-action id="action-routing" text="Routing" icon="road-sign" aria-label="Show routing panel"></calcite-action>
-          <calcite-action id="action-buffer" text="Buffer Analysis" icon="circle-area" aria-label="Show buffer analysis panel"></calcite-action>
-          <calcite-action id="action-upload" text="Upload Shapefile" icon="upload-to" aria-label="Show shapefile upload panel"></calcite-action>
-          <calcite-action id="action-arcgis" text="ArcGIS Online Search" icon="search" aria-label="Show ArcGIS Online search panel"></calcite-action>
+          <calcite-action id="action-pois"    text="Points of Interest"   icon="tour"         active aria-label="Show Points of Interest panel"></calcite-action>
+          <calcite-action id="action-routing" text="Route Planner"        icon="road-sign"           aria-label="Show routing panel"></calcite-action>
+          <calcite-action id="action-buffer"  text="Buffer Analysis"      icon="circle-area"         aria-label="Show buffer analysis panel"></calcite-action>
+          <calcite-action id="action-live"    text="Live OSM Data"        icon="satellite-2"         aria-label="Fetch live OpenStreetMap tourism data"></calcite-action>
+          <calcite-action id="action-upload"  text="Upload Shapefile"     icon="upload-to"           aria-label="Show shapefile upload panel"></calcite-action>
+          <calcite-action id="action-arcgis"  text="ArcGIS Online Search" icon="search"              aria-label="Show ArcGIS Online search panel"></calcite-action>
+          <calcite-action id="action-geojson" text="GeoJSON & GIS Filter" icon="layers"              aria-label="Show GeoJSON layers and filtering panel"></calcite-action>
+          <calcite-action id="action-isochrones" text="Isochrone Maps" icon="time-zone" aria-label="Show Isochrone service panel"></calcite-action>
+          <calcite-action id="action-recommend" text="Recommendations" icon="thumbs-up" aria-label="Show smart recommendations panel"></calcite-action>
+          <calcite-action id="action-spatial-analysis" text="Spatial Analysis" icon="analysis" aria-label="Show PostGIS spatial analysis panel"></calcite-action>
         </calcite-action-bar>
 
-        <!-- Tab 1: POIs List -->
-        <calcite-panel heading="Points of Interest" id="panel-pois">
+        <!-- ── Tab 1: POIs List ──────────────────────────────────── -->
+        <calcite-panel heading="Tourism Spots" id="panel-pois">
           <div class="panel-content">
             <calcite-input
               id="poi-search"
               name="poi_search"
-              placeholder="Search attractions, hotels, parks..."
+              placeholder="Search temples, hotels, parks..."
               icon="search"
               clearable
               aria-label="Search points of interest by name, address or description">
             </calcite-input>
 
+            <!-- Category filter -->
+            <div class="filter-section-label">Category</div>
             <div class="filter-chips" role="group" aria-label="Filter by category">
-              <calcite-chip value="all" class="filter-chip" active kind="neutral" aria-label="Show all categories">All</calcite-chip>
-              <calcite-chip value="attraction" class="filter-chip" kind="neutral" aria-label="Filter attractions">Attractions</calcite-chip>
-              <calcite-chip value="hotel" class="filter-chip" kind="neutral" aria-label="Filter hotels">Hotels</calcite-chip>
-              <calcite-chip value="restaurant" class="filter-chip" kind="neutral" aria-label="Filter restaurants">Restaurants</calcite-chip>
-              <calcite-chip value="park" class="filter-chip" kind="neutral" aria-label="Filter parks">Parks</calcite-chip>
+              <calcite-chip value="all"         class="filter-chip" active kind="neutral" aria-label="All categories">All</calcite-chip>
+              <calcite-chip value="heritage"    class="filter-chip" kind="neutral" aria-label="Heritage sites">Heritage</calcite-chip>
+              <calcite-chip value="temple"      class="filter-chip" kind="neutral" aria-label="Temples">Temples</calcite-chip>
+              <calcite-chip value="attraction"  class="filter-chip" kind="neutral" aria-label="Attractions">Attractions</calcite-chip>
+              <calcite-chip value="hotel"       class="filter-chip" kind="neutral" aria-label="Hotels">Hotels</calcite-chip>
+              <calcite-chip value="restaurant"  class="filter-chip" kind="neutral" aria-label="Restaurants">Restaurants</calcite-chip>
+              <calcite-chip value="park"        class="filter-chip" kind="neutral" aria-label="Parks">Parks</calcite-chip>
+              <calcite-chip value="adventure"   class="filter-chip" kind="neutral" aria-label="Adventure">Adventure</calcite-chip>
+              <calcite-chip value="shopping"    class="filter-chip" kind="neutral" aria-label="Shopping">Shopping</calcite-chip>
+            </div>
+
+            <!-- District filter -->
+            <div class="filter-section-label">District</div>
+            <div class="filter-chips" role="group" aria-label="Filter by district">
+              <calcite-chip value="all"       class="district-chip" active kind="neutral" aria-label="All districts">All Districts</calcite-chip>
+              <calcite-chip value="kathmandu" class="district-chip" kind="neutral" aria-label="Kathmandu">Kathmandu</calcite-chip>
+              <calcite-chip value="lalitpur"  class="district-chip" kind="neutral" aria-label="Lalitpur (Patan)">Lalitpur</calcite-chip>
+              <calcite-chip value="bhaktapur" class="district-chip" kind="neutral" aria-label="Bhaktapur">Bhaktapur</calcite-chip>
             </div>
 
             <calcite-list id="pois-list" aria-label="List of points of interest">
@@ -71,25 +91,27 @@
           </div>
         </calcite-panel>
 
-        <!-- Tab 2: pgRouting Planner -->
-        <calcite-panel heading="pgRouting Planner" id="panel-routing" closed>
+        <!-- ── Tab 2: Route Planner ──────────────────────────────── -->
+        <calcite-panel heading="ORS Route Planner" id="panel-routing" closed>
           <div class="panel-content">
             <calcite-notice open aria-label="Routing instructions">
-              <div slot="message">Click two points on the map or select from the dropdowns below to calculate the shortest path.</div>
+              <div slot="message">Click two points on the map or select POIs to find the shortest driving route via OpenRouteService.</div>
             </calcite-notice>
 
-            <div class="form-group">
-              <label for="route-start-select">Start Location</label>
-              <calcite-select id="route-start-select" name="route_start" aria-label="Select route start location">
-                <calcite-option value="" selected>-- Select Start POI --</calcite-option>
-              </calcite-select>
+            <div class="form-group" style="position: relative;">
+              <label>Start Location</label>
+              <calcite-input id="route-start-search" placeholder="Search address, POI or click map..." icon="pin-tear" clearable>
+                <calcite-button slot="action" id="btn-route-start-map" icon-start="map" kind="neutral" title="Set start by clicking on the map" aria-label="Select start location on map"></calcite-button>
+              </calcite-input>
+              <calcite-list id="route-start-results" class="routing-results-list hidden"></calcite-list>
             </div>
 
-            <div class="form-group">
-              <label for="route-end-select">End Location</label>
-              <calcite-select id="route-end-select" name="route_end" aria-label="Select route end location">
-                <calcite-option value="" selected>-- Select End POI --</calcite-option>
-              </calcite-select>
+            <div class="form-group mt-8" style="position: relative;">
+              <label>End Location</label>
+              <calcite-input id="route-end-search" placeholder="Search address, POI or click map..." icon="pin-tear-f" clearable>
+                <calcite-button slot="action" id="btn-route-end-map" icon-start="map" kind="neutral" title="Set end by clicking on the map" aria-label="Select end location on map"></calcite-button>
+              </calcite-input>
+              <calcite-list id="route-end-results" class="routing-results-list hidden"></calcite-list>
             </div>
 
             <calcite-button id="btn-calculate-route" width="full" appearance="solid" kind="brand" icon-start="route-to" aria-label="Calculate shortest path between selected locations">
@@ -103,17 +125,17 @@
             <div id="route-results-container" class="results-container" aria-live="polite" aria-label="Route calculation results">
               <h4 id="route-distance-title" class="section-title">Total Distance: 0m</h4>
               <calcite-list id="route-directions-list" class="directions-list" aria-label="Step-by-step route directions">
-                <!-- Dynamically populated step directions -->
+                <!-- Dynamically populated -->
               </calcite-list>
             </div>
           </div>
         </calcite-panel>
 
-        <!-- Tab 3: PostGIS Buffer Analysis -->
+        <!-- ── Tab 3: PostGIS Buffer Analysis ───────────────────── -->
         <calcite-panel heading="PostGIS Buffer Tool" id="panel-buffer" closed>
           <div class="panel-content">
             <calcite-notice open aria-label="Buffer tool instructions">
-              <div slot="message">Click on a POI or double-click anywhere on the map, set a buffer radius, and find all nearby attractions.</div>
+              <div slot="message">Click on a POI or double-click anywhere on the map, set a buffer radius, and find all nearby tourism spots.</div>
             </calcite-notice>
 
             <div class="form-group">
@@ -134,11 +156,11 @@
                 id="buffer-distance"
                 name="buffer_radius"
                 min="50"
-                max="2000"
-                value="500"
+                max="5000"
+                value="1000"
                 step="50"
                 label-handles
-                aria-label="Buffer radius in meters, range 50 to 2000">
+                aria-label="Buffer radius in meters, range 50 to 5000">
               </calcite-slider>
             </div>
 
@@ -149,13 +171,52 @@
             <div id="buffer-results-container" class="results-container" aria-live="polite" aria-label="Buffer analysis results">
               <h4 id="buffer-count-title" class="section-title">Found 0 items</h4>
               <calcite-list id="buffer-results-list" aria-label="Points of interest within buffer radius">
-                <!-- Dynamically populated buffer list -->
+                <!-- Dynamically populated -->
               </calcite-list>
             </div>
           </div>
         </calcite-panel>
 
-        <!-- Tab 4: Shapefile Importer -->
+        <!-- ── Tab 4: Live OSM Data (Overpass API) ───────────────── -->
+        <calcite-panel heading="Live OSM Data" id="panel-live" closed>
+          <div class="panel-content">
+            <calcite-notice open kind="brand" aria-label="Live OSM data instructions">
+              <div slot="title">OpenStreetMap Live Data</div>
+              <div slot="message">Fetch real-time tourism data directly from OpenStreetMap via the Overpass API. Select a district to load live POIs onto the map.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="overpass-district-select">District</label>
+              <calcite-select id="overpass-district-select" name="overpass_district" aria-label="Select district to fetch live OSM data">
+                <calcite-option value="all"       selected>All Kathmandu Valley</calcite-option>
+                <calcite-option value="kathmandu">Kathmandu</calcite-option>
+                <calcite-option value="lalitpur">Lalitpur (Patan)</calcite-option>
+                <calcite-option value="bhaktapur">Bhaktapur</calcite-option>
+              </calcite-select>
+            </div>
+
+            <calcite-button id="btn-fetch-overpass" width="full" appearance="solid" kind="brand" icon-start="satellite-2" aria-label="Fetch live OpenStreetMap data">
+              Fetch Live OSM Data
+            </calcite-button>
+
+            <calcite-button id="btn-clear-overpass" class="mt-8" width="full" appearance="outline" kind="neutral" aria-label="Clear live OSM layer from map">
+              Clear Live Layer
+            </calcite-button>
+
+            <div id="overpass-loader-container" class="loader-container" aria-live="polite">
+              <calcite-loader text="Fetching from OpenStreetMap..." aria-label="Fetching OSM data, please wait..."></calcite-loader>
+            </div>
+
+            <div id="overpass-results-container" class="results-container" aria-live="polite">
+              <h4 id="overpass-count-title" class="section-title">0 live POIs loaded</h4>
+              <calcite-list id="overpass-results-list" aria-label="Live OSM points of interest">
+                <!-- Dynamically populated -->
+              </calcite-list>
+            </div>
+          </div>
+        </calcite-panel>
+
+        <!-- ── Tab 5: Shapefile Importer ────────────────────────── -->
         <calcite-panel heading="Import Shapefile (ArcGIS SDK)" id="panel-upload" closed>
           <div class="panel-content">
             <calcite-notice open aria-label="Shapefile upload instructions">
@@ -167,8 +228,8 @@
               <calcite-input
                 id="upload-table-name"
                 name="table_name"
-                placeholder="e.g. sf_tourist_spots"
-                value="sf_imported_spots"
+                placeholder="e.g. ktm_heritage_zones"
+                value="ktm_imported_spots"
                 required
                 aria-label="PostgreSQL target table name for imported shapefile"
                 aria-required="true">
@@ -195,23 +256,23 @@
             </div>
 
             <div id="upload-result-notice" class="result-notice" aria-live="polite">
-              <!-- Dynamically populated upload notice -->
+              <!-- Dynamically populated -->
             </div>
           </div>
         </calcite-panel>
 
-        <!-- Tab 5: ArcGIS Online search -->
+        <!-- ── Tab 6: ArcGIS Online Search ──────────────────────── -->
         <calcite-panel heading="ArcGIS Online Explorer" id="panel-arcgis" closed>
           <div class="panel-content">
             <calcite-notice open aria-label="ArcGIS Online search instructions">
-              <div slot="message">Query the ArcGIS Location Platform using python GIS module for matching tourism layers.</div>
+              <div slot="message">Query the ArcGIS Location Platform using the ArcGIS Python SDK for matching Nepal/Kathmandu tourism layers.</div>
             </calcite-notice>
 
             <calcite-input
               id="arcgis-search-input"
               name="arcgis_query"
-              placeholder="Search query (e.g. San Francisco tourism)..."
-              value="tourism San Francisco"
+              placeholder="Search query (e.g. Kathmandu Nepal heritage)..."
+              value="tourism Kathmandu Nepal"
               icon="search"
               aria-label="Search query for ArcGIS Online tourism layers">
             </calcite-input>
@@ -225,13 +286,422 @@
             </div>
 
             <calcite-list id="arcgis-results-list" class="arcgis-results" aria-label="ArcGIS Online search results" aria-live="polite">
-              <!-- Dynamically populated search results -->
+              <!-- Dynamically populated -->
             </calcite-list>
           </div>
         </calcite-panel>
+
+        <!-- ── Tab 7: GeoJSON Layers & GIS Filter (Select by Attribute/Location) ── -->
+        <calcite-panel heading="GIS Analysis & Layers" id="panel-geojson" closed>
+          <div class="panel-content">
+            <calcite-notice open class="mb-8" aria-label="GIS Tool instructions">
+              <div slot="message">Explore Nepal administrative boundaries (Province, District, GapaNapa), identify features by clicking, and run spatial or attribute queries.</div>
+            </calcite-notice>
+
+            <!-- Section 1: Layers Toggle -->
+            <calcite-block heading="GeoJSON Layer Selector" summary="Toggle and customize layers" collapsible open>
+              <calcite-icon slot="icon" icon="layers" size="s"></calcite-icon>
+              
+              <div class="layer-toggle-row">
+                <calcite-label layout="inline">
+                  <calcite-switch id="chk-layer-province" name="layer_province"></calcite-switch>
+                  Provinces (Nepal)
+                </calcite-label>
+                <div class="layer-control-sub">
+                  <label for="slider-opacity-province">Opacity</label>
+                  <calcite-slider id="slider-opacity-province" min="0" max="100" value="40" step="5" label-handles></calcite-slider>
+                </div>
+              </div>
+
+              <div class="layer-toggle-row mt-8">
+                <calcite-label layout="inline">
+                  <calcite-switch id="chk-layer-district" name="layer_district"></calcite-switch>
+                  Districts (Nepal)
+                </calcite-label>
+                <div class="layer-control-sub">
+                  <label for="slider-opacity-district">Opacity</label>
+                  <calcite-slider id="slider-opacity-district" min="0" max="100" value="40" step="5" label-handles></calcite-slider>
+                </div>
+              </div>
+
+              <div class="layer-toggle-row mt-8">
+                <calcite-label layout="inline">
+                  <calcite-switch id="chk-layer-gapanapa" name="layer_gapanapa"></calcite-switch>
+                  GapaNapa (Local Units)
+                </calcite-label>
+                <div class="layer-control-sub">
+                  <label for="slider-opacity-gapanapa">Opacity</label>
+                  <calcite-slider id="slider-opacity-gapanapa" min="0" max="100" value="30" step="5" label-handles></calcite-slider>
+                </div>
+              </div>
+
+              <div class="form-group mt-8">
+                <calcite-label layout="inline">
+                  <calcite-checkbox id="chk-simplify-geom" checked></calcite-checkbox>
+                  Enable optimization (simplified geometry for speed)
+                </calcite-label>
+              </div>
+            </calcite-block>
+
+            <!-- Section 2: Identify by Location -->
+            <calcite-block heading="Search by Location (Identify)" summary="Click map to query boundary information" collapsible>
+              <calcite-icon slot="icon" icon="object-detection" size="s"></calcite-icon>
+              
+              <calcite-button id="btn-toggle-identify" width="full" appearance="outline" kind="brand" icon-start="pin" aria-label="Toggle click-to-identify tool">
+                Enable Click-to-Identify
+              </calcite-button>
+
+              <div id="identify-results-card" class="results-container mt-8 hidden">
+                <calcite-card>
+                  <div slot="header"><b>Clicked Location Details</b></div>
+                  <div id="identify-details" class="identify-details-list">
+                    <!-- Populated dynamically -->
+                  </div>
+                </calcite-card>
+              </div>
+            </calcite-block>
+
+            <!-- Section 3: Select by Attribute -->
+            <calcite-block heading="Select by Attribute" summary="Filter layers using SQL-like attribute queries" collapsible>
+              <calcite-icon slot="icon" icon="filter" size="s"></calcite-icon>
+              
+              <div class="form-group">
+                <label for="attr-layer-select">Target Layer</label>
+                <calcite-select id="attr-layer-select" name="attr_layer" width="full">
+                  <calcite-option value="pois" selected>Tourist POIs</calcite-option>
+                  <calcite-option value="province_layer">Province Layer</calcite-option>
+                  <calcite-option value="district_layer">District Layer</calcite-option>
+                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="attr-key-select">Field / Property</label>
+                <calcite-select id="attr-key-select" name="attr_key" width="full">
+                  <!-- Dynamically populated or updated based on selected layer -->
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="attr-operator-select">Operator</label>
+                <calcite-select id="attr-operator-select" name="attr_operator" width="full">
+                  <calcite-option value="contains" selected>Contains (text)</calcite-option>
+                  <calcite-option value="equals">Equals (=)</calcite-option>
+                  <calcite-option value="starts_with">Starts with (text)</calcite-option>
+                  <calcite-option value="ends_with">Ends with (text)</calcite-option>
+                  <calcite-option value="greater_than">Greater than (&gt;)</calcite-option>
+                  <calcite-option value="less_than">Less than (&lt;)</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="attr-value-input">Value</label>
+                <calcite-input id="attr-value-input" name="attr_value" placeholder="Enter query value..." required></calcite-input>
+              </div>
+
+              <div class="form-group">
+                <label>SQL Preview</label>
+                <pre id="attr-sql-preview" class="sql-preview-block">SELECT * FROM pois WHERE name ILIKE '%...%';</pre>
+              </div>
+
+              <calcite-button id="btn-run-attribute-query" width="full" appearance="solid" kind="brand" icon-start="filter">
+                Select by Attribute
+              </calcite-button>
+            </calcite-block>
+
+            <!-- Section 4: Select by Location (Spatial Filter) -->
+            <calcite-block heading="Select by Location (Spatial Filter)" summary="Query spatial relationship between two layers" collapsible>
+              <calcite-icon slot="icon" icon="spatial-selection" size="s"></calcite-icon>
+              
+              <div class="form-group">
+                <label for="spatial-target-select">Target Layer (Select from)</label>
+                <calcite-select id="spatial-target-select" name="spatial_target" width="full">
+                  <calcite-option value="pois" selected>Tourist POIs</calcite-option>
+                  <calcite-option value="district_layer">District Layer</calcite-option>
+                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="spatial-relation-select">Spatial Relationship</label>
+                <calcite-select id="spatial-relation-select" name="spatial_relation" width="full">
+                  <calcite-option value="intersects" selected>Intersects</calcite-option>
+                  <calcite-option value="contains">Contains (Source contains Target)</calcite-option>
+                  <calcite-option value="within">Within (Target within Source)</calcite-option>
+                  <calcite-option value="touches">Touches</calcite-option>
+                  <calcite-option value="within_distance">Within Distance of</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="spatial-source-select">Source Layer</label>
+                <calcite-select id="spatial-source-select" name="spatial_source" width="full">
+                  <calcite-option value="province_layer" selected>Province Layer</calcite-option>
+                  <calcite-option value="district_layer">District Layer</calcite-option>
+                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
+                  <calcite-option value="pois">Tourist POIs</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group">
+                <label for="spatial-source-feature-select">Source Feature (Optional)</label>
+                <calcite-select id="spatial-source-feature-select" name="spatial_source_feature" width="full">
+                  <calcite-option value="" selected>-- All features --</calcite-option>
+                </calcite-select>
+              </div>
+
+              <div class="form-group hidden" id="spatial-distance-group">
+                <label for="spatial-distance-input">Search Distance (meters)</label>
+                <calcite-input id="spatial-distance-input" type="number" name="spatial_distance" value="1000" min="0" step="100"></calcite-input>
+              </div>
+
+              <calcite-button id="btn-run-spatial-query" width="full" appearance="solid" kind="brand" icon-start="spatial-selection">
+                Select by Location
+              </calcite-button>
+            </calcite-block>
+
+            <!-- Results container for analysis queries -->
+            <div id="gis-results-container" class="results-container mt-8 hidden" aria-live="polite">
+              <div class="flex-row-space-between mb-4">
+                <h4 id="gis-results-title" class="section-title">Query Results</h4>
+                <div class="flex-row-gap-4">
+                  <calcite-button id="btn-export-gis-csv" appearance="solid" kind="neutral" icon-start="download" size="s">Export CSV</calcite-button>
+                  <calcite-button id="btn-clear-gis-results" appearance="transparent" kind="neutral" icon-start="erase" size="s">Clear Selection</calcite-button>
+                </div>
+              </div>
+              <calcite-list id="gis-results-list" aria-label="Query selection results">
+                <!-- Dynamically populated -->
+              </calcite-list>
+            </div>
+
+          </div>
+        </calcite-panel>
+
+        <!-- ── Tab 8: ORS Isochrones Service ────────────────────── -->
+        <calcite-panel heading="Isochrone analysis" id="panel-isochrones" closed>
+          <div class="panel-content">
+            <calcite-notice open class="mb-8" aria-label="Isochrone instructions">
+              <div slot="message">Click on the map or select a POI as a center, choose your travel mode, and calculate reachable zones.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="iso-center-display">Selected Center</label>
+              <calcite-input
+                id="iso-center-display"
+                name="iso_center"
+                placeholder="Click map to set center..."
+                read-only>
+              </calcite-input>
+            </div>
+
+            <div class="form-group">
+              <label for="iso-profile-select">Travel Mode</label>
+              <calcite-select id="iso-profile-select" name="iso_profile" width="full">
+                <calcite-option value="driving-car" selected>Driving (Car)</calcite-option>
+                <calcite-option value="foot-walking">Walking (Foot)</calcite-option>
+                <calcite-option value="cycling-regular">Cycling (Regular)</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="iso-range-type">Range Type</label>
+              <calcite-select id="iso-range-type" name="iso_range_type" width="full">
+                <calcite-option value="time" selected>Time (Minutes)</calcite-option>
+                <calcite-option value="distance">Distance (Meters)</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group" id="iso-time-sliders">
+              <label id="lbl-iso-range-1">Range 1: 5 min</label>
+              <calcite-slider id="slider-iso-range-1" min="1" max="60" value="5" step="1" label-handles></calcite-slider>
+              
+              <label id="lbl-iso-range-2" class="mt-8">Range 2: 10 min</label>
+              <calcite-slider id="slider-iso-range-2" min="1" max="60" value="10" step="1" label-handles></calcite-slider>
+              
+              <label id="lbl-iso-range-3" class="mt-8">Range 3: 15 min</label>
+              <calcite-slider id="slider-iso-range-3" min="1" max="60" value="15" step="1" label-handles></calcite-slider>
+            </div>
+
+            <calcite-button id="btn-run-isochrones" width="full" appearance="solid" kind="brand" icon-start="time-zone">
+              Generate Isochrones
+            </calcite-button>
+
+            <calcite-button id="btn-clear-isochrones" class="mt-8" width="full" appearance="outline" kind="neutral">
+              Clear Isochrones
+            </calcite-button>
+          </div>
+        </calcite-panel>
+
+        <!-- ── Tab 9: Smart Recommendations ──────────────────────── -->
+        <calcite-panel heading="Smart Recommendations" id="panel-recommend" closed>
+          <div class="panel-content">
+            <calcite-notice open kind="brand" class="mb-8" aria-label="Recommendations instructions">
+              <div slot="message">Select a tourism spot to discover similar places powered by PostGIS spatial scoring and pre-computed similarity pairs.</div>
+            </calcite-notice>
+
+            <div class="form-group">
+              <label for="rec-poi-select">Select a Place</label>
+              <calcite-select id="rec-poi-select" name="rec_poi" width="full" aria-label="Select source POI for recommendations">
+                <calcite-option value="" selected>-- Choose a tourism spot --</calcite-option>
+                <!-- Dynamically populated -->
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="rec-limit">Number of Recommendations</label>
+              <calcite-slider id="rec-limit" min="3" max="10" value="5" step="1" label-handles aria-label="Number of recommendations"></calcite-slider>
+            </div>
+
+            <calcite-button id="btn-run-recommendations" width="full" appearance="solid" kind="brand" icon-start="thumbs-up" aria-label="Find recommended similar places">
+              Find Recommendations
+            </calcite-button>
+
+            <calcite-button id="btn-clear-recommendations" class="mt-8" width="full" appearance="outline" kind="neutral" icon-start="erase" aria-label="Clear recommendation results">
+              Clear Results
+            </calcite-button>
+
+            <div id="rec-source-card" class="rec-source-card hidden" aria-live="polite">
+              <!-- Source POI summary -->
+            </div>
+
+            <div id="rec-results-container" class="results-container mt-8 hidden" aria-live="polite">
+              <h4 id="rec-results-title" class="section-title">Recommendations</h4>
+              <div id="rec-results-list" class="rec-results-grid">
+                <!-- Dynamically populated recommendation cards -->
+              </div>
+            </div>
+          </div>
+        </calcite-panel>
+
+        <!-- ── Tab 10: PostGIS Spatial Analysis ──────────────────── -->
+        <calcite-panel heading="PostGIS Spatial Analysis" id="panel-spatial-analysis" closed>
+          <div class="panel-content">
+
+            <!-- Tool 1: DBSCAN Cluster Analysis -->
+            <calcite-block heading="Cluster Analysis (DBSCAN)" summary="Group nearby POIs into spatial clusters" collapsible open>
+              <calcite-icon slot="icon" icon="analysis" size="s"></calcite-icon>
+              <calcite-notice open class="mb-8" aria-label="Cluster analysis description">
+                <div slot="message">Uses PostGIS ST_ClusterDBSCAN to find spatially dense groups of tourism spots.</div>
+              </calcite-notice>
+              <div class="form-group">
+                <label id="lbl-cluster-radius">Cluster Radius: 500m</label>
+                <calcite-slider id="slider-cluster-radius" min="100" max="5000" value="500" step="100" label-handles aria-label="Cluster radius in meters"></calcite-slider>
+              </div>
+              <div class="form-group">
+                <label id="lbl-cluster-minpts">Min. Points per Cluster: 2</label>
+                <calcite-slider id="slider-cluster-minpts" min="2" max="10" value="2" step="1" label-handles aria-label="Minimum points per cluster"></calcite-slider>
+              </div>
+              <calcite-button id="btn-run-cluster" width="full" appearance="solid" kind="brand" icon-start="analysis" aria-label="Run DBSCAN cluster analysis">
+                Run Cluster Analysis
+              </calcite-button>
+              <div id="cluster-results" class="analysis-result-box hidden" aria-live="polite">
+                <!-- Cluster results -->
+              </div>
+            </calcite-block>
+
+            <!-- Tool 2: Nearest Facility -->
+            <calcite-block heading="Nearest Facility Finder" summary="Click map to find closest POIs" collapsible>
+              <calcite-icon slot="icon" icon="locate" size="s"></calcite-icon>
+              <calcite-notice open class="mb-8" aria-label="Nearest facility description">
+                <div slot="message">Click anywhere on the map to find the closest tourism facilities by category.</div>
+              </calcite-notice>
+              <div class="form-group">
+                <calcite-input id="nearest-center-display" placeholder="Click map to set location..." read-only aria-label="Nearest facility query location"></calcite-input>
+              </div>
+              <div class="form-group">
+                <label for="nearest-category-select">Filter by Category</label>
+                <calcite-select id="nearest-category-select" name="nearest_category" width="full" aria-label="Category to search for nearest facilities">
+                  <calcite-option value="" selected>All Categories</calcite-option>
+                  <calcite-option value="heritage">Heritage Sites</calcite-option>
+                  <calcite-option value="temple">Temples</calcite-option>
+                  <calcite-option value="attraction">Attractions</calcite-option>
+                  <calcite-option value="hotel">Hotels</calcite-option>
+                  <calcite-option value="restaurant">Restaurants</calcite-option>
+                  <calcite-option value="park">Parks</calcite-option>
+                  <calcite-option value="adventure">Adventure</calcite-option>
+                  <calcite-option value="shopping">Shopping</calcite-option>
+                </calcite-select>
+              </div>
+              <div class="form-group">
+                <label id="lbl-nearest-limit">Results: 5</label>
+                <calcite-slider id="slider-nearest-limit" min="1" max="15" value="5" step="1" label-handles aria-label="Number of nearest facilities"></calcite-slider>
+              </div>
+              <calcite-button id="btn-toggle-nearest" width="full" appearance="outline" kind="brand" icon-start="pin" aria-label="Toggle map click mode for nearest facility">
+                Enable Map Click Mode
+              </calcite-button>
+              <calcite-button id="btn-run-nearest" class="mt-8" width="full" appearance="solid" kind="brand" icon-start="locate" aria-label="Find nearest facilities at selected location">
+                Find Nearest Facilities
+              </calcite-button>
+              <div id="nearest-results" class="analysis-result-box hidden" aria-live="polite">
+                <!-- Nearest facility results -->
+              </div>
+            </calcite-block>
+
+            <!-- Tool 3: POI Density Zones -->
+            <calcite-block heading="POI Density Zones" summary="Visualize tourism concentration areas" collapsible>
+              <calcite-icon slot="icon" icon="heat-chart" size="s"></calcite-icon>
+              <calcite-notice open class="mb-8" aria-label="Density analysis description">
+                <div slot="message">Generates buffer zones around each POI and colors them by how many other POIs are nearby.</div>
+              </calcite-notice>
+              <div class="form-group">
+                <label id="lbl-density-radius">Density Radius: 1000m</label>
+                <calcite-slider id="slider-density-radius" min="200" max="5000" value="1000" step="100" label-handles aria-label="Density radius in meters"></calcite-slider>
+              </div>
+              <calcite-button id="btn-run-density" width="full" appearance="solid" kind="brand" icon-start="heat-chart" aria-label="Run POI density analysis">
+                Generate Density Map
+              </calcite-button>
+              <calcite-button id="btn-clear-density" class="mt-8" width="full" appearance="outline" kind="neutral" aria-label="Clear density map">
+                Clear Density Map
+              </calcite-button>
+            </calcite-block>
+
+            <!-- Tool 4: Service Area Overlap -->
+            <calcite-block heading="Service Area Overlap" summary="Find overlapping buffer zones between POIs" collapsible>
+              <calcite-icon slot="icon" icon="overview" size="s"></calcite-icon>
+              <calcite-notice open class="mb-8" aria-label="Service area overlap description">
+                <div slot="message">Select a POI to see which nearby POIs have overlapping service areas (buffer zones).</div>
+              </calcite-notice>
+              <div class="form-group">
+                <label for="overlap-poi-select">Source POI</label>
+                <calcite-select id="overlap-poi-select" name="overlap_poi" width="full" aria-label="Select source POI for service area overlap">
+                  <calcite-option value="" selected>-- Select a POI --</calcite-option>
+                  <!-- Dynamically populated -->
+                </calcite-select>
+              </div>
+              <div class="form-group">
+                <label id="lbl-overlap-radius">Service Radius: 1000m</label>
+                <calcite-slider id="slider-overlap-radius" min="100" max="10000" value="1000" step="100" label-handles aria-label="Service area radius in meters"></calcite-slider>
+              </div>
+              <calcite-button id="btn-run-overlap" width="full" appearance="solid" kind="brand" icon-start="overview" aria-label="Run service area overlap analysis">
+                Analyze Overlap
+              </calcite-button>
+              <calcite-button id="btn-clear-overlap" class="mt-8" width="full" appearance="outline" kind="neutral" aria-label="Clear service area overlap">
+                Clear Overlap
+              </calcite-button>
+              <div id="overlap-results" class="analysis-result-box hidden" aria-live="polite">
+                <!-- Overlap results -->
+              </div>
+            </calcite-block>
+
+          </div>
+        </calcite-panel>
+
       </calcite-shell-panel>
 
     </calcite-shell>
+
+    <!-- LAYER 1.5: Floating Address Geocoder Search -->
+    <div id="geocoder-search-container" class="map-overlay-card geocoder-card" role="search" aria-label="Address search">
+      <calcite-input
+        id="geocoder-input"
+        placeholder="Search any place in Nepal..."
+        icon="search"
+        clearable>
+      </calcite-input>
+      <calcite-list id="geocoder-results-list" class="hidden" aria-label="Search suggestions">
+        <!-- Populated dynamically with geocoded addresses -->
+      </calcite-list>
+    </div>
 
     <!-- LAYER 2: Floating Basemap Selector -->
     <div id="basemap-selector-container" class="map-overlay-card" role="complementary" aria-label="Basemap style selector">
@@ -256,9 +726,9 @@
     </div>
 
     <!-- LAYER 3: Add POI Dialog -->
-    <calcite-dialog id="add-poi-modal" heading="Add New Tourist Attraction" modal width-scale="m" aria-label="Add new point of interest dialog">
+    <calcite-dialog id="add-poi-modal" heading="Add New Tourism Spot" modal width-scale="m" aria-label="Add new point of interest dialog">
       <calcite-notice open kind="brand" class="dialog-notice" aria-label="Dialog instructions">
-        <div slot="message">Configure your custom location details. Geometry is captured from your click.</div>
+        <div slot="message">Configure your custom location details. Geometry is captured from your map click.</div>
       </calcite-notice>
 
       <div class="form-group">
@@ -266,7 +736,7 @@
         <calcite-input
           id="new-poi-name"
           name="poi_name"
-          placeholder="e.g. Lombard Street Cafe"
+          placeholder="e.g. Pashupatinath Temple"
           required
           aria-label="Attraction name (required)"
           aria-required="true">
@@ -276,10 +746,23 @@
       <div class="form-group">
         <label for="new-poi-category">Category *</label>
         <calcite-select id="new-poi-category" name="poi_category" aria-label="Point of interest category">
-          <calcite-option value="attraction" selected>Attraction</calcite-option>
+          <calcite-option value="heritage"   selected>Heritage Site</calcite-option>
+          <calcite-option value="temple">Temple / Religious</calcite-option>
+          <calcite-option value="attraction">Attraction</calcite-option>
           <calcite-option value="hotel">Hotel</calcite-option>
           <calcite-option value="restaurant">Restaurant</calcite-option>
-          <calcite-option value="park">Park</calcite-option>
+          <calcite-option value="park">Park / Garden</calcite-option>
+          <calcite-option value="adventure">Adventure / Outdoor</calcite-option>
+          <calcite-option value="shopping">Shopping / Market</calcite-option>
+        </calcite-select>
+      </div>
+
+      <div class="form-group">
+        <label for="new-poi-district">District *</label>
+        <calcite-select id="new-poi-district" name="poi_district" aria-label="District of the point of interest">
+          <calcite-option value="kathmandu" selected>Kathmandu</calcite-option>
+          <calcite-option value="lalitpur">Lalitpur (Patan)</calcite-option>
+          <calcite-option value="bhaktapur">Bhaktapur</calcite-option>
         </calcite-select>
       </div>
 
@@ -302,7 +785,7 @@
         <calcite-input
           id="new-poi-address"
           name="poi_address"
-          placeholder="e.g. 100 Lombard St"
+          placeholder="e.g. Pashupatinath Road, Kathmandu"
           aria-label="Street address of the attraction">
         </calcite-input>
       </div>
