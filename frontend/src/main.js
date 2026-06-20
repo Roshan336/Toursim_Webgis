@@ -1,14 +1,4 @@
 import "./style.css";
-import {
-  CATEGORY_COLORS,
-  CATEGORY_CODES,
-  CATEGORY_ICON_URLS,
-  CATEGORY_LABELS,
-  CALCITE_ICONS,
-  getCategorySymbol,
-  getCategoryBadgeHtml,
-  mergeApiCategories,
-} from "./categoryConfig.js";
 import Basemap from "@arcgis/core/Basemap";
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
@@ -104,10 +94,8 @@ const BASEMAPS = {
 };
 
 let map, view;
-let categoryLayers = {}; // category code → GraphicsLayer
-let routeGraphicsLayer, tempGraphicsLayer, overpassGraphicsLayer;
+let poiGraphicsLayer, routeGraphicsLayer, tempGraphicsLayer, overpassGraphicsLayer;
 let provinceGraphicsLayer, districtGraphicsLayer, gapanapaGraphicsLayer, selectionGraphicsLayer, isochronesGraphicsLayer;
-let highlightGraphicsLayer; // hover/highlight
 let allPois = [];
 let overpassPois = [];
 let routingStartCoords = null; // [lon, lat]
@@ -129,8 +117,6 @@ let analysisGraphicsLayer = null;
 let recommendationsGraphicsLayer = null;
 let lastGisResult = null;
 let lastGisTargetLayer = "";
-let categoryMeta = { labels: { ...CATEGORY_LABELS }, colors: { ...CATEGORY_COLORS }, icons: { ...CALCITE_ICONS } };
-let categoryStats = {};
 
 function createBasemap(id) {
   const config = BASEMAPS[id] || BASEMAPS.osm;
@@ -146,10 +132,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   await defineCustomElements();
   initMap();
   setupUIEventListeners();
-  setupGlobalSearch();
+  setupGeocoder();
   setupRoutingGeocoders();
-  await loadCategoryMetadata();
-  await fetchPOIs();
+  fetchPOIs();
 });
 
 // 1. Initialize Map and Views
@@ -159,19 +144,11 @@ function initMap() {
   gapanapaGraphicsLayer = new GraphicsLayer({ id: "gapanapa-layer", opacity: 0.3 });
   selectionGraphicsLayer = new GraphicsLayer({ id: "selection-layer" });
   isochronesGraphicsLayer = new GraphicsLayer({ id: "isochrones-layer" });
-  routeGraphicsLayer = new GraphicsLayer({ id: "route-layer" });
-  tempGraphicsLayer = new GraphicsLayer({ id: "temp-layer" });
+  
+  poiGraphicsLayer     = new GraphicsLayer({ id: "pois-layer" });
+  routeGraphicsLayer   = new GraphicsLayer({ id: "route-layer" });
+  tempGraphicsLayer    = new GraphicsLayer({ id: "temp-layer" });
   overpassGraphicsLayer = new GraphicsLayer({ id: "overpass-layer" });
-  highlightGraphicsLayer = new GraphicsLayer({ id: "highlight-layer", listMode: "hide" });
-
-  CATEGORY_CODES.forEach((code) => {
-    categoryLayers[code] = new GraphicsLayer({
-      id: `pois-${code}`,
-      title: categoryMeta.labels[code] || CATEGORY_LABELS[code],
-      listMode: "show",
-      visible: true,
-    });
-  });
 
   map = new Map({
     basemap: createBasemap("osm"),
@@ -184,8 +161,7 @@ function initMap() {
       routeGraphicsLayer,
       tempGraphicsLayer,
       overpassGraphicsLayer,
-      highlightGraphicsLayer,
-      ...CATEGORY_CODES.map((code) => categoryLayers[code]),
+      poiGraphicsLayer
     ]
   });
 
@@ -209,8 +185,6 @@ function initMap() {
   // Map Listeners
   // Single click: handle buffer center selection or routing point selection
   view.on("click", (event) => {
-    // clear any hover highlight when clicking to avoid stale highlight
-    if (highlightGraphicsLayer) highlightGraphicsLayer.removeAll();
     const lat = event.mapPoint.latitude;
     const lon = event.mapPoint.longitude;
 
@@ -260,42 +234,6 @@ function initMap() {
     event.stopPropagation(); // prevent default zoom
     openAddPoiModal(event.mapPoint.longitude, event.mapPoint.latitude);
   });
-
-  // Hover highlight for POIs (interactive symbols)
-  view.on("pointer-move", async (evt) => {
-    try {
-      const hit = await view.hitTest(evt);
-      if (!hit || !hit.results || hit.results.length === 0) {
-        highlightGraphicsLayer.removeAll();
-        return;
-      }
-      // find first graphic that belongs to category layers
-      const poiResult = hit.results.find(r => r.graphic && r.graphic.layer && r.graphic.layer.id && r.graphic.attributes && r.graphic.attributes.id);
-      if (!poiResult) {
-        highlightGraphicsLayer.removeAll();
-        return;
-      }
-      const g = poiResult.graphic;
-      // Only highlight if different
-      const existing = highlightGraphicsLayer.graphics.getLength() > 0 ? highlightGraphicsLayer.graphics.getItemAt(0) : null;
-      if (existing && existing.attributes && existing.attributes.id === g.attributes.id) return;
-
-      highlightGraphicsLayer.removeAll();
-      const cat = g.attributes.category || 'attraction';
-      const hSymbol = {
-        type: 'simple-marker',
-        style: 'circle',
-        color: hexToRgb(categoryMeta.colors?.[cat] || CATEGORY_COLORS[cat] || '#2980B9').concat(0.95),
-        size: '28px',
-        outline: { color: [255,255,255,0.95], width: 3 }
-      };
-      const hoverGraphic = new Graphic({ geometry: g.geometry, symbol: hSymbol, attributes: g.attributes });
-      highlightGraphicsLayer.add(hoverGraphic);
-    } catch (e) {
-      // on error, clear highlight
-      highlightGraphicsLayer.removeAll();
-    }
-  });
 }
 
 // 2. Fetch Points of Interest from Backend
@@ -304,98 +242,86 @@ async function fetchPOIs() {
     const response = await fetch(`${BACKEND_URL}/api/pois`);
     if (!response.ok) throw new Error("Database connection failed");
     const geojson = await response.json();
-
+    
     allPois = geojson.features || [];
-    categoryStats = {};
-    allPois.forEach((f) => {
-      const c = f.properties?.category;
-      if (c) categoryStats[c] = (categoryStats[c] || 0) + 1;
-    });
-
     renderPOIsOnMap(allPois);
     populatePOIList(allPois);
     populateRoutingSelects(allPois);
-    buildCategoryExploreGrid();
-    buildCategoryLayerToggles();
   } catch (error) {
     showToast("Error loading tourist spots", "Could not connect to PostGIS backend. Check if FastAPI is running.", "danger");
   }
 }
 
-// 3. Render POI features onto map (category-based layers + cartographic icons)
-function clearAllCategoryLayers() {
-  CATEGORY_CODES.forEach((code) => {
-    if (categoryLayers[code]) categoryLayers[code].removeAll();
-  });
-}
-
-function findPoiGraphicById(poiId) {
-  for (const code of CATEGORY_CODES) {
-    const layer = categoryLayers[code];
-    if (!layer) continue;
-    const g = layer.graphics.find((gr) => gr.attributes?.id === poiId);
-    if (g) return g;
-  }
-  return null;
-}
-
-function buildPoiPopupContent(props, coords) {
-  const districtBadge = props.district
-    ? `<span class="district-badge district-${props.district}">${props.district.charAt(0).toUpperCase() + props.district.slice(1)}</span>`
-    : "";
-  const safeName = (props.name || "").replace(/'/g, "\\'");
-  return `
-    <div style="font-family: 'Outfit', sans-serif;">
-      ${props.image_url ? `<img class="poi-popup-img" src="${props.image_url}" alt="${props.name}"/>` : ""}
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
-        ${districtBadge}
-        ${getCategoryBadgeHtml(props.category)}
-      </div>
-      <p><strong>Rating:</strong> ⭐ ${props.rating || "N/A"} / 5.0</p>
-      <p><strong>Address:</strong> ${props.address || "No address provided"}</p>
-      <p>${props.description || "No description available."}</p>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${safeName}')" title="Set Route Start">🚩</button>
-        <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${safeName}')" title="Set Route End">🏁</button>
-        <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${safeName}')" title="Buffer from here">⭕</button>
-        <button class="custom-map-btn" onclick="window.deletePoiFromPopup(${props.id}, '${safeName}')" title="Remove POI">🗑️</button>
-      </div>
-    </div>
-  `;
-}
-
+// 3. Render POI features onto map
 function renderPOIsOnMap(features) {
-  clearAllCategoryLayers();
+  poiGraphicsLayer.removeAll();
 
-  features.forEach((feature) => {
+  features.forEach(feature => {
     const coords = feature.geometry.coordinates;
-    const props = feature.properties;
-    const category = props.category || "attraction";
-    const layer = categoryLayers[category] || categoryLayers.attraction;
-    if (!layer || !layer.visible) return;
+    const props  = feature.properties;
+
+    // Category → color mapping (Kathmandu Valley palette)
+    const COLOR_MAP = {
+      heritage:    [139, 69,  19],   // Saddle Brown
+      temple:      [180, 30,  30],   // Deep Red (sacred)
+      attraction:  [0,   122, 255],  // Brand Blue
+      hotel:       [255, 149, 0],    // Amber/Orange
+      restaurant:  [255, 59,  48],   // Coral Red
+      park:        [52,  199, 89],   // Green
+    };
+    const color = COLOR_MAP[props.category] || COLOR_MAP.attraction;
 
     const point = new Point({
       longitude: coords[0],
-      latitude: coords[1],
-      spatialReference: { wkid: 4326 },
+      latitude:  coords[1],
+      spatialReference: { wkid: 4326 }
     });
 
-    const markerSize = category === "heritage" ? 34 : 28;
-    const markerSymbol = makePoiSymbol(category, markerSize);
+    // Larger markers for UNESCO heritage
+    const markerSize = (props.category === "heritage") ? "14px" : "11px";
+
+    const markerSymbol = {
+      type: "simple-marker",
+      color: color,
+      size: markerSize,
+      outline: { color: [255, 255, 255], width: 1.5 }
+    };
+
+    // District badge in popup
+    const districtBadge = props.district
+      ? `<span class="district-badge district-${props.district}">${props.district.charAt(0).toUpperCase() + props.district.slice(1)}</span>`
+      : "";
 
     const popupTemplate = {
       title: `{name}`,
-      content: buildPoiPopupContent(props, coords),
+      content: `
+        <div style="font-family: 'Outfit', sans-serif;">
+          ${props.image_url ? `<img class="poi-popup-img" src="${props.image_url}" alt="${props.name}"/>` : ""}
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            ${districtBadge}
+            <span class="category-badge category-${props.category}">${(props.category || "").replace(/_/g, " ")}</span>
+          </div>
+          <p><strong>Rating:</strong> ⭐ ${props.rating || "N/A"} / 5.0</p>
+          <p><strong>Address:</strong> ${props.address || "No address provided"}</p>
+          <p>${props.description || "No description available."}</p>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Set Route Start">🚩</button>
+            <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Set Route End">🏁</button>
+            <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Buffer from here">⭕</button>
+            <button class="custom-map-btn" onclick="window.deletePoiFromPopup(${props.id}, '${props.name.replace(/'/g, "\\'")}')" title="Remove POI">🗑️</button>
+          </div>
+        </div>
+      `
     };
 
-    layer.add(
-      new Graphic({
-        geometry: point,
-        symbol: markerSymbol,
-        attributes: props,
-        popupTemplate,
-      })
-    );
+    const graphic = new Graphic({
+      geometry: point,
+      symbol: markerSymbol,
+      attributes: props,
+      popupTemplate: popupTemplate
+    });
+
+    poiGraphicsLayer.add(graphic);
   });
 }
 
@@ -413,7 +339,15 @@ function populatePOIList(features) {
     const props  = feature.properties;
     const coords = feature.geometry.coordinates;
 
-    const icon = categoryMeta.icons[props.category] || CALCITE_ICONS[props.category] || "tour";
+    const ICON_MAP = {
+      heritage:   "layer",
+      temple:     "effects",
+      attraction: "tour",
+      hotel:      "home",
+      restaurant: "shopping-cart",
+      park:       "tree",
+    };
+    const icon = ICON_MAP[props.category] || "tour";
 
     const districtLabel = props.district
       ? ` • ${props.district.charAt(0).toUpperCase() + props.district.slice(1)}`
@@ -426,7 +360,7 @@ function populatePOIList(features) {
 
     item.addEventListener("click", () => {
       view.goTo({ center: [coords[0], coords[1]], zoom: 16 }, { duration: 1000 });
-      const matchingGraphic = findPoiGraphicById(props.id);
+      const matchingGraphic = poiGraphicsLayer.graphics.find(g => g.attributes.id === props.id);
       if (matchingGraphic) {
         view.openPopup({ features: [matchingGraphic], location: matchingGraphic.geometry });
       }
@@ -604,33 +538,6 @@ function formatDuration(seconds) {
   return remainingMinutes ? `${hours} hr ${remainingMinutes} min` : `${hours} hr`;
 }
 
-// helper: make POI symbol according to selected style
-let poiSymbolStyle = 'pin'; // 'pin'|'circle'|'dot'
-function makePoiSymbol(category, size = 30) {
-  if (poiSymbolStyle === 'circle') {
-    const rgb = hexToRgb(categoryMeta.colors?.[category] || CATEGORY_COLORS[category] || '#2980B9');
-    return {
-      type: 'simple-marker',
-      style: 'circle',
-      color: [...rgb, 0.95],
-      size: `${Math.round(size * 0.8)}px`,
-      outline: { color: [255,255,255,0.95], width: 2 }
-    };
-  }
-  if (poiSymbolStyle === 'dot') {
-    const rgb = hexToRgb(categoryMeta.colors?.[category] || CATEGORY_COLORS[category] || '#2980B9');
-    return {
-      type: 'simple-marker',
-      style: 'circle',
-      color: [...rgb, 0.95],
-      size: `${Math.round(size * 0.5)}px`,
-      outline: { color: [255,255,255,0.95], width: 1.2 }
-    };
-  }
-  // default: svg pin picture
-  return getCategorySymbol(category, size);
-}
-
 // 9. Handle Buffer selection and PostGIS spatial execution
 function setBufferCenter(lon, lat, name = null) {
   bufferCenterPoint = { lon, lat };
@@ -803,6 +710,52 @@ async function uploadShapefile() {
   }
 }
 
+// 11. ArcGIS Online Search Function
+async function runArcGisSearch() {
+  const query = document.getElementById("arcgis-search-input").value;
+  const loader = document.getElementById("arcgis-loader-container");
+  const list = document.getElementById("arcgis-results-list");
+
+  if (!query) return;
+
+  loader.style.display = "block";
+  list.innerHTML = "";
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/analysis/arcgis-search?query=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("Search request failed");
+    const data = await response.json();
+    
+    loader.style.display = "none";
+    const results = data.results || [];
+    
+    if (results.length === 0 || data.results.error) {
+      const msg = data.results.error || "No matching tourism layers found.";
+      list.innerHTML = `<calcite-list-item description="${msg}"></calcite-list-item>`;
+      return;
+    }
+
+    results.forEach(item => {
+      const listItem = document.createElement("calcite-list-item");
+      listItem.setAttribute("label", item.title);
+      listItem.setAttribute("description", `Owner: ${item.owner} • Type: Service`);
+      listItem.setAttribute("icon-start", "search");
+      
+      const linkButton = document.createElement("calcite-button");
+      linkButton.setAttribute("slot", "actions-end");
+      linkButton.setAttribute("appearance", "transparent");
+      linkButton.setAttribute("icon-start", "launch");
+      linkButton.setAttribute("href", item.url || `https://www.arcgis.com/home/item.html?id=${item.id}`);
+      linkButton.setAttribute("target", "_blank");
+      
+      listItem.appendChild(linkButton);
+      list.appendChild(listItem);
+    });
+  } catch (error) {
+    loader.style.display = "none";
+    showToast("ArcGIS Search Error", error.message, "danger");
+  }
+}
 
 // 12. Add New POI functions
 function openAddPoiModal(lon, lat) {
@@ -864,7 +817,7 @@ async function saveNewPOI() {
 }
 
 function getActivePanelId() {
-  const actions = ["action-pois", "action-routing", "action-buffer", "action-live", "action-upload", "action-geojson", "action-isochrones", "action-recommend", "action-spatial-analysis"];
+  const actions = ["action-pois", "action-routing", "action-buffer", "action-live", "action-upload", "action-arcgis", "action-geojson", "action-isochrones", "action-recommend", "action-spatial-analysis"];
   for (const act of actions) {
     const el = document.getElementById(act);
     if (el && el.hasAttribute("active")) {
@@ -1006,7 +959,7 @@ function setupUIEventListeners() {
       actions.forEach(act => act.removeAttribute("active"));
       targetAction.setAttribute("active", "");
 
-      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-live", "panel-upload", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
+      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-live", "panel-upload", "panel-arcgis", "panel-geojson", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
       panels.forEach(pId => {
         const panel = document.getElementById(pId);
         if (pId === panelId) {
@@ -1047,7 +1000,8 @@ function setupUIEventListeners() {
       chip.setAttribute("active", "");
       chip.setAttribute("kind", "brand");
       activeCategoryFilter = chip.getAttribute("value");
-      selectCategoryFilter(activeCategoryFilter);
+      const term = document.getElementById("poi-search").value.toLowerCase().trim();
+      filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
     });
   });
 
@@ -1084,6 +1038,11 @@ function setupUIEventListeners() {
   // Upload shapefile button
   document.getElementById("btn-upload-shp").addEventListener("click", uploadShapefile);
 
+  // ArcGIS search button
+  document.getElementById("btn-arcgis-search").addEventListener("click", runArcGisSearch);
+  document.getElementById("arcgis-search-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") runArcGisSearch();
+  });
 
   // Save/Cancel POI (Calcite Dialog Events)
   const poiDialog = document.getElementById("add-poi-modal");
@@ -1137,43 +1096,6 @@ function setupUIEventListeners() {
   });
 
   // Initialize GeoJSON layer and GIS selection listeners
-  // Add a collapse/expand toggle for the floating GIS panel (keeps HTML untouched — injects button at runtime)
-  (function initGisPanelToggle() {
-    const gisContainer = document.getElementById('gis-panel-container');
-    if (!gisContainer) return;
-    const card = gisContainer.querySelector('calcite-card');
-    if (!card) return;
-    card.id = 'gis-panel-card';
-
-    // append toggle button to header
-    const header = card.querySelector('.basemap-card-header');
-    if (header) {
-      const btn = document.createElement('calcite-button');
-      btn.id = 'btn-toggle-gis-panel';
-      btn.setAttribute('appearance', 'transparent');
-      btn.setAttribute('icon-start', 'chevron-up');
-      btn.setAttribute('scale', 's');
-      btn.textContent = ' Hide GIS';
-      btn.style.marginLeft = '8px';
-      header.appendChild(btn);
-
-      const content = card.querySelector('.basemap-card-content');
-      if (content) content.id = 'gis-panel-content';
-
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!content) return;
-        const collapsed = content.classList.toggle('hidden');
-        // update icon & label
-        btn.icon = collapsed ? 'chevron-down' : 'chevron-up';
-        btn.textContent = collapsed ? ' Show GIS' : ' Hide GIS';
-        // compact the card when collapsed
-        card.style.width = collapsed ? '56px' : '320px';
-        card.style.transition = 'width 180ms ease-in-out';
-      });
-    }
-  })();
-
   setupGeoJsonUIEventListeners();
 }
 
@@ -1336,16 +1258,6 @@ function updateRouteTempMarkers() {
 // ═══════════════════════════════════════════════════════════════════
 
 function setupGeoJsonUIEventListeners() {
-  // Symbol style selector hookup
-  const symbolSelect = document.getElementById('symbol-style-select');
-  if (symbolSelect) {
-    symbolSelect.addEventListener('calciteSelectChange', (e) => {
-      poiSymbolStyle = e.target.value || 'pin';
-      // re-render POIs preserving current filters
-      const term = document.getElementById('poi-search').value.toLowerCase().trim();
-      filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
-    });
-  }
   // 1. Layer Toggles
   document.getElementById("chk-layer-province").addEventListener("calciteSwitchChange", async (e) => {
     const checked = e.target.checked;
@@ -2055,290 +1967,111 @@ window.openAddPoiModal = openAddPoiModal;
 // OPENROUTESERVICE GEOCODING LOGIC
 // ═══════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════
-// CATEGORY METADATA, LAYERS UI & GLOBAL SEARCH (ArcGIS Online style)
-// ═══════════════════════════════════════════════════════════════════
-
-async function loadCategoryMetadata() {
-  try {
-    const [catRes, statsRes] = await Promise.all([
-      fetch(`${BACKEND_URL}/api/categories`),
-      fetch(`${BACKEND_URL}/api/categories/stats`),
-    ]);
-    if (catRes.ok) {
-      const rows = await catRes.json();
-      const merged = mergeApiCategories(rows);
-      if (merged) categoryMeta = merged;
-    }
-    if (statsRes.ok) {
-      const stats = await statsRes.json();
-      categoryStats = {};
-      stats.forEach((s) => {
-        categoryStats[s.code] = s.poi_count || 0;
-      });
-    }
-  } catch (e) {
-    console.warn("Category metadata load failed, using defaults:", e);
-  }
-  buildCategoryLayerToggles();
-  buildCategoryLegend();
-}
-
-function buildCategoryExploreGrid() {
-  const grid = document.getElementById("category-explore-grid");
-  if (!grid) return;
-  grid.innerHTML = "";
-
-  const allCard = document.createElement("button");
-  allCard.type = "button";
-  allCard.className = "category-explore-card" + (activeCategoryFilter === "all" ? " active" : "");
-  allCard.setAttribute("role", "listitem");
-  allCard.innerHTML = `
-    <div class="category-explore-icon" style="background:#0079c1"><calcite-icon icon="layers" scale="s"></calcite-icon></div>
-    <div class="category-explore-body">
-      <div class="category-explore-label">All Places</div>
-      <div class="category-explore-count">${allPois.length || "—"} spots</div>
-    </div>`;
-  allCard.addEventListener("click", () => selectCategoryFilter("all"));
-  grid.appendChild(allCard);
-
-  CATEGORY_CODES.forEach((code) => {
-    const color = categoryMeta.colors[code] || CATEGORY_COLORS[code];
-    const label = categoryMeta.labels[code] || CATEGORY_LABELS[code];
-    const count = categoryStats[code] ?? allPois.filter((f) => f.properties?.category === code).length;
-    const icon = categoryMeta.icons[code] || CALCITE_ICONS[code];
-
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "category-explore-card" + (activeCategoryFilter === code ? " active" : "");
-    card.setAttribute("role", "listitem");
-    card.dataset.category = code;
-    card.innerHTML = `
-      <div class="category-explore-icon" style="background:${color}"><calcite-icon icon="${icon}" scale="s"></calcite-icon></div>
-      <div class="category-explore-body">
-        <div class="category-explore-label">${label}</div>
-        <div class="category-explore-count">${count} places</div>
-      </div>`;
-    card.addEventListener("click", () => selectCategoryFilter(code));
-    grid.appendChild(card);
-  });
-}
-
-function selectCategoryFilter(code) {
-  activeCategoryFilter = code;
-  document.querySelectorAll(".category-explore-card").forEach((el) => {
-    const isAll = code === "all" && !el.dataset.category;
-    const isCat = el.dataset.category === code;
-    el.classList.toggle("active", isAll || isCat);
-  });
-  document.querySelectorAll(".filter-chip").forEach((chip) => {
-    chip.toggleAttribute("active", chip.getAttribute("value") === code);
-  });
-  const term = document.getElementById("poi-search").value.toLowerCase().trim();
-  filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
-}
-
-function buildCategoryLayerToggles() {
-  const container = document.getElementById("category-layer-toggles");
-  if (!container) return;
-  container.innerHTML = "";
-
-  CATEGORY_CODES.forEach((code) => {
-    const label = categoryMeta.labels[code] || CATEGORY_LABELS[code];
-    const count = categoryStats[code] ?? allPois.filter((f) => f.properties?.category === code).length;
-    const pinUrl = CATEGORY_ICON_URLS[code];
-
-    const row = document.createElement("div");
-    row.className = "category-layer-row";
-    row.innerHTML = `
-      <img class="category-layer-pin" src="${pinUrl}" alt="" aria-hidden="true" />
-      <span class="category-layer-label">${label}</span>
-      <span class="category-layer-count">${count}</span>
-      <calcite-switch checked data-category="${code}" aria-label="Show ${label} on map"></calcite-switch>`;
-
-    const switchEl = row.querySelector("calcite-switch");
-    switchEl.addEventListener("calciteSwitchChange", (e) => {
-      const layer = categoryLayers[code];
-      if (layer) {
-        layer.visible = e.target.checked;
-        const term = document.getElementById("poi-search").value.toLowerCase().trim();
-        filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
-      }
-    });
-    container.appendChild(row);
-  });
-}
-
-function buildCategoryLegend() {
-  const legend = document.getElementById("category-legend");
-  if (!legend) return;
-  legend.innerHTML = CATEGORY_CODES.map((code) => {
-    const label = categoryMeta.labels[code] || CATEGORY_LABELS[code];
-    const pinUrl = CATEGORY_ICON_URLS[code];
-    return `<div class="category-legend-item"><img class="category-legend-pin" src="${pinUrl}" alt="" /><span>${label}</span></div>`;
-  }).join("");
-}
-
-function setupGlobalSearch() {
-  const inputEl = document.getElementById("global-search-input");
-  const resultsPanel = document.getElementById("global-search-results");
-  const poiList = document.getElementById("global-search-poi-list");
-  const addressList = document.getElementById("global-search-address-list");
-  const emptyEl = document.getElementById("global-search-empty");
-  const closeBtn = document.getElementById("btn-close-global-search");
-
-  if (!inputEl || !resultsPanel) return;
-
+function setupGeocoder() {
+  const inputEl = document.getElementById("geocoder-input");
+  const resultsList = document.getElementById("geocoder-results-list");
+  
   let debounceTimeout = null;
-
-  function hideResults() {
-    resultsPanel.classList.add("hidden");
-  }
-
-  function showResults() {
-    resultsPanel.classList.remove("hidden");
-  }
-
-  closeBtn?.addEventListener("click", hideResults);
-
+  
+  // Listen to text input with debounce
   inputEl.addEventListener("calciteInputInput", (e) => {
     const query = e.target.value.trim();
-    if (debounceTimeout) clearTimeout(debounceTimeout);
-
-    if (query.length < 2) {
-      hideResults();
+    
+    // Clear debounce
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+    
+    if (query.length < 3) {
+      resultsList.classList.add("hidden");
+      resultsList.innerHTML = "";
       return;
     }
-
+    
     debounceTimeout = setTimeout(async () => {
-      const q = query.toLowerCase();
-      const poiMatches = allPois.filter((f) => {
-        const p = f.properties || {};
-        return (
-          p.name?.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q) ||
-          p.category?.toLowerCase().includes(q)
-        );
-      }).slice(0, 8);
-
-      poiList.innerHTML = "";
-      addressList.innerHTML = "";
-
-      poiMatches.forEach((feature) => {
-        const props = feature.properties;
-        const coords = feature.geometry.coordinates;
-        const item = document.createElement("calcite-list-item");
-        item.setAttribute("label", props.name);
-        item.setAttribute(
-          "description",
-          `${categoryMeta.labels[props.category] || props.category} · ${props.district || "Kathmandu Valley"}`
-        );
-        item.setAttribute("icon-start", categoryMeta.icons[props.category] || CALCITE_ICONS[props.category] || "pin");
-        item.addEventListener("click", () => {
-          flyToPoi(coords, props);
-          hideResults();
-          inputEl.value = props.name;
-        });
-        poiList.appendChild(item);
-      });
-
-      let addressMatches = [];
-      if (query.length >= 3) {
-        try {
-          const response = await fetch(`${BACKEND_URL}/api/geocode?text=${encodeURIComponent(query)}`);
-          if (response.ok) {
-            const data = await response.json();
-            addressMatches = (data.features || []).slice(0, 5);
-          }
-        } catch (err) {
-          console.warn("Geocode search failed:", err);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/geocode?text=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error("Geocoding failed");
+        const data = await response.json();
+        
+        const features = data.features || [];
+        resultsList.innerHTML = "";
+        
+        if (features.length === 0) {
+          const item = document.createElement("calcite-list-item");
+          item.setAttribute("label", "No places found");
+          item.setAttribute("description", "Try searching another query in Nepal");
+          resultsList.appendChild(item);
+        } else {
+          features.forEach(feat => {
+            const props = feat.properties;
+            const coords = feat.geometry.coordinates; // [lon, lat]
+            
+            const item = document.createElement("calcite-list-item");
+            item.setAttribute("label", props.name || props.label || "Unknown Place");
+            item.setAttribute("description", `${props.locality || ""} ${props.region || ""}`.trim() || "Nepal");
+            item.setAttribute("icon-start", "pin");
+            
+            item.addEventListener("click", () => {
+              // Zoom to coordinate
+              view.goTo({
+                center: [coords[0], coords[1]],
+                zoom: 16
+              }, { duration: 1200 });
+              
+              // Clear previous selection highlight/temp markers
+              tempGraphicsLayer.removeAll();
+              
+              // Add a search highlight marker
+              const searchMarker = new Graphic({
+                geometry: new Point({ longitude: coords[0], latitude: coords[1], spatialReference: { wkid: 4326 } }),
+                symbol: {
+                  type: "simple-marker",
+                  color: [0, 122, 255], // blue
+                  size: "14px",
+                  outline: { color: [255, 255, 255], width: 2 }
+                }
+              });
+              tempGraphicsLayer.add(searchMarker);
+              
+              // Open popup with buttons to route or save POI
+              const placeName = props.name || props.label || "Searched Place";
+              view.openPopup({
+                title: placeName,
+                location: searchMarker.geometry,
+                content: `
+                  <div style="font-family: 'Outfit', sans-serif;">
+                    <p style="margin: 0 0 8px 0; font-size: 0.9em; color: #555;"><b>Location:</b> ${props.label || "Nepal"}</p>
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                      <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Set Route Start">🚩 Start</button>
+                      <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Set Route End">🏁 End</button>
+                      <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Buffer here">⭕ Buffer</button>
+                      <button class="custom-map-btn" onclick="window.openAddPoiModal(${coords[0]}, ${coords[1]})" title="Save POI">💾 Save</button>
+                    </div>
+                  </div>
+                `
+              });
+              
+              resultsList.classList.add("hidden");
+            });
+            resultsList.appendChild(item);
+          });
         }
+        
+        resultsList.classList.remove("hidden");
+      } catch (err) {
+        console.error("Geocoding suggestion error:", err);
       }
-
-      addressMatches.forEach((feat) => {
-        const props = feat.properties;
-        const coords = feat.geometry.coordinates;
-        const item = document.createElement("calcite-list-item");
-        item.setAttribute("label", props.name || props.label || "Address");
-        item.setAttribute("description", props.label || props.locality || "Nepal");
-        item.setAttribute("icon-start", "pin");
-        item.addEventListener("click", () => {
-          flyToAddress(coords, props);
-          hideResults();
-        });
-        addressList.appendChild(item);
-      });
-
-      const poiSection = document.getElementById("global-search-poi-section");
-      const addrSection = document.getElementById("global-search-address-section");
-      poiSection.classList.toggle("hidden", poiMatches.length === 0);
-      addrSection.classList.toggle("hidden", addressMatches.length === 0);
-      emptyEl.classList.toggle("hidden", poiMatches.length > 0 || addressMatches.length > 0);
-
-      document.getElementById("global-search-results-title").textContent =
-        `${poiMatches.length + addressMatches.length} result${poiMatches.length + addressMatches.length === 1 ? "" : "s"}`;
-
-      showResults();
-    }, 280);
+    }, 300);
   });
-
-  inputEl.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") hideResults();
-  });
-
+  
+  // Hide results list when clicking outside
   document.addEventListener("click", (e) => {
-    if (
-      !resultsPanel.contains(e.target) &&
-      !inputEl.contains(e.target) &&
-      e.target !== inputEl
-    ) {
-      hideResults();
+    const geocoderContainer = document.getElementById("geocoder-search-container");
+    if (geocoderContainer && !geocoderContainer.contains(e.target)) {
+      resultsList.classList.add("hidden");
     }
   });
-}
-
-function flyToPoi(coords, props) {
-  view.goTo({ center: [coords[0], coords[1]], zoom: 16 }, { duration: 1000 });
-  const graphic = findPoiGraphicById(props.id);
-  if (graphic) {
-    view.openPopup({ features: [graphic], location: graphic.geometry });
-  }
-}
-
-function flyToAddress(coords, props) {
-  view.goTo({ center: [coords[0], coords[1]], zoom: 16 }, { duration: 1200 });
-  tempGraphicsLayer.removeAll();
-  const searchMarker = new Graphic({
-    geometry: new Point({ longitude: coords[0], latitude: coords[1], spatialReference: { wkid: 4326 } }),
-    symbol: {
-      type: "simple-marker",
-      color: [0, 121, 193],
-      size: "14px",
-      outline: { color: [255, 255, 255], width: 2 },
-    },
-  });
-  tempGraphicsLayer.add(searchMarker);
-  const placeName = (props.name || props.label || "Searched Place").replace(/'/g, "\\'");
-  view.openPopup({
-    title: props.name || props.label || "Location",
-    location: searchMarker.geometry,
-    content: `
-      <div style="font-family: 'Outfit', sans-serif;">
-        <p style="margin: 0 0 8px 0; font-size: 0.9em; color: #555;"><b>Location:</b> ${props.label || "Nepal"}</p>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${placeName}')" title="Set Route Start">🚩 Start</button>
-          <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${placeName}')" title="Set Route End">🏁 End</button>
-          <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${placeName}')" title="Buffer here">⭕ Buffer</button>
-          <button class="custom-map-btn" onclick="window.openAddPoiModal(${coords[0]}, ${coords[1]})" title="Save POI">💾 Save</button>
-        </div>
-      </div>`,
-  });
-}
-
-// Legacy alias — routing geocoders still use backend geocode API
-function setupGeocoder() {
-  setupGlobalSearch();
 }
 
 function setupRoutingGeocoders() {
@@ -2707,8 +2440,17 @@ function clearIsochrones() {
 // NEW FEATURES: Recommendations + Spatial Analysis
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Category colors map (from categoryConfig — re-export for analysis panels)
-// CATEGORY_COLORS imported at top of file
+// Category colors map (matching DB)
+const CATEGORY_COLORS = {
+  heritage:    "#8B4513",
+  temple:      "#C0392B",
+  attraction:  "#2980B9",
+  hotel:       "#E67E22",
+  restaurant:  "#E74C3C",
+  park:        "#27AE60",
+  adventure:   "#8E44AD",
+  shopping:    "#16A085"
+};
 
 // Generate an array of distinct colors for cluster visualization
 const CLUSTER_PALETTE = [
@@ -2756,6 +2498,11 @@ function ensureAnalysisLayer() {
 }
 
 // ─── Recommendations Panel ───────────────────────────────────────────────────
+
+function getCategoryBadgeHtml(category) {
+  const color = CATEGORY_COLORS[category] || "#6b7280";
+  return `<span class="category-badge cat-badge-${category}" style="background:${color}">${category}</span>`;
+}
 
 async function runRecommendations() {
   const poiId = document.getElementById("rec-poi-select").value;
