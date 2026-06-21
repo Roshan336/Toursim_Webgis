@@ -1,3 +1,8 @@
+// Authentication check - Redirect to login if not logged in
+if (localStorage.getItem("isLoggedIn") !== "true") {
+  window.location.href = "login.html";
+}
+
 import "./style.css";
 import Basemap from "@arcgis/core/Basemap";
 import Map from "@arcgis/core/Map";
@@ -11,6 +16,7 @@ import Point from "@arcgis/core/geometry/Point";
 import Polyline from "@arcgis/core/geometry/Polyline";
 import Polygon from "@arcgis/core/geometry/Polygon";
 import Zoom from "@arcgis/core/widgets/Zoom";
+// eslint-disable-next-line -- DistanceMeasurement2D is deprecated but @arcgis/map-components is not installed
 import DistanceMeasurement2D from "@arcgis/core/widgets/DistanceMeasurement2D";
 
 // Calcite Custom Elements Loader
@@ -187,6 +193,7 @@ function initMap() {
   view.when(() => {
     view.ui.add(new Zoom({ view }), "top-left");
     
+    // Initialize distance measurement widget and attach to the measure panel container
     measurementWidget = new DistanceMeasurement2D({
       view: view,
       container: "measure-container"
@@ -1157,13 +1164,17 @@ function setupUIEventListeners() {
   // Check auth state on load
   if (localStorage.getItem("isLoggedIn") === "true") {
     const user = localStorage.getItem("username") || "User";
-    actionLogin.setAttribute("text", `Logout (${user})`);
+    actionLogin.textContent = `Logout (${user})`;
     isLoggedIn = true;
   }
 
   actionLogin.addEventListener("click", () => {
     if (localStorage.getItem("isLoggedIn") === "true") {
-      window.location.href = "logout.html";
+      // Logout process
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("username");
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
     } else {
       window.location.href = "login.html";
     }
@@ -1583,6 +1594,9 @@ function setupGeoJsonUIEventListeners() {
   const updateSpatialSourceFeatures = async () => {
     const sourceLayer = spatialSourceSelect.value;
     spatialSourceFeatureSelect.innerHTML = '<calcite-option value="" selected>-- All features --</calcite-option>';
+    
+    // Don't fetch if no layer is selected yet
+    if (!sourceLayer || sourceLayer === "" || sourceLayer === "undefined") return;
     
     try {
       const res = await fetch(`${BACKEND_URL}/api/layers/${sourceLayer}/features`);

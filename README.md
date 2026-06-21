@@ -41,6 +41,15 @@ This project integrates **FastAPI**, **PostgreSQL/PostGIS**, **ArcGIS Maps SDK f
 ### 7. Tourism Recommendation Engine
 - Recommends similar places based on precomputed rating scores and PostGIS distance-based proximity fallbacks.
 
+### 8. Secure User Authentication
+- Complete Login and Registration flow seamlessly integrated into the SPA architecture.
+- New users can register accounts which are securely hashed (`bcrypt`) and saved in the PostgreSQL `users` table.
+- Forces authentication immediately upon app load, keeping tourism data and tools restricted to authorized users.
+
+### 9. Distance Measuring Tool
+- Interactive map widget using ArcGIS `DistanceMeasurement2D`.
+- Allows users to accurately measure polyline distances (e.g. tracking trail lengths or route segments) dynamically.
+
 ---
 
 ## 🛠️ Architecture & Tech Stack
@@ -129,6 +138,7 @@ The seeded Postgres database includes the following key tables:
 * `poi_categories`: Lookup table storing metadata like labels, HSL hex colors, and icon identifiers.
 * `poi_recommendations`: Mapping similar spots with weighted score pairs.
 * `province_layer`, `district_layer`, `gapanapa_layer`: Administrative boundaries containing GIS geometry polygons.
+* `users`: Secure authentication table storing usernames and `bcrypt`-hashed passwords for application access.
 
 ---
 

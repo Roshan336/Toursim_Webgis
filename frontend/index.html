@@ -33,7 +33,7 @@
           Valley</calcite-chip>
         <calcite-action id="theme-toggle" class="theme-toggle-action" text="Toggle light/dark theme" icon="moon"
           aria-label="Toggle light and dark theme"></calcite-action>
-        <calcite-action id="action-login" text="Login" icon="user" aria-label="Login/Logout"></calcite-action>
+        <calcite-button id="action-login" appearance="transparent" icon-start="user" style="margin-left: 0.5rem; color: var(--calcite-ui-text-1);">Logout</calcite-button>
       </calcite-navigation-right>
     </calcite-navigation>
 
@@ -458,7 +458,7 @@
     <div class="layers-drawer-body">
 
       <!-- ── Section 1: Map Overlays ──────────────────── -->
-      <calcite-block heading="Map Overlays" summary="Show boundaries on the map" icon-start="map-pin" collapsible open>
+      <calcite-block heading="Map Overlays" summary="Show boundaries on the map" icon-start="map-pin" collapsible expanded>
         <calcite-notice open class="mb-8" aria-label="Map Overlays Info">
           <div slot="message">Toggle these to see Nepal's administrative boundaries overlaid on the map.</div>
         </calcite-notice>

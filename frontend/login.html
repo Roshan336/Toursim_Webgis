@@ -41,6 +41,25 @@
       color: #64748b;
       font-size: 0.9rem;
     }
+    .tabs {
+      display: flex;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem;
+      cursor: pointer;
+      color: #64748b;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      color: #3b82f6;
+      border-bottom: 2px solid #3b82f6;
+    }
     .form-group {
       margin-bottom: 1.5rem;
     }
@@ -80,22 +99,20 @@
     .login-btn:hover {
       background: #2563eb;
     }
-    .back-link {
-      display: block;
-      text-align: center;
-      margin-top: 1.5rem;
-      color: #64748b;
-      text-decoration: none;
-      font-size: 0.9rem;
+    .login-btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
     }
-    .back-link:hover {
-      color: #3b82f6;
-    }
-    #error-msg {
-      color: #ef4444;
+    #error-msg, #success-msg {
       font-size: 0.85rem;
       margin-top: 0.5rem;
       display: none;
+    }
+    #error-msg {
+      color: #ef4444;
+    }
+    #success-msg {
+      color: #10b981;
     }
   </style>
 </head>
@@ -103,7 +120,12 @@
   <div class="login-container">
     <div class="login-header">
       <h1>Welcome to TourGIS</h1>
-      <p>Please enter your credentials to login</p>
+      <p>Authentication required to access the map</p>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" id="tab-login">Login</div>
+      <div class="tab" id="tab-register">Register</div>
     </div>
     
     <div class="form-group">
@@ -116,25 +138,86 @@
       <input type="password" id="password" placeholder="Enter your password">
     </div>
     
-    <div id="error-msg">Please enter a valid username.</div>
+    <div id="error-msg"></div>
+    <div id="success-msg"></div>
     
-    <button class="login-btn" id="login-btn">Login</button>
-    
-    <a href="index.html" class="back-link">Return to Map</a>
+    <button class="login-btn" id="submit-btn">Login</button>
   </div>
 
   <script>
-    document.getElementById('login-btn').addEventListener('click', () => {
-      const user = document.getElementById('username').value.trim();
-      const err = document.getElementById('error-msg');
-      
-      if (user) {
-        err.style.display = 'none';
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("username", user);
-        window.location.href = "index.html";
+    let isLoginMode = true;
+    const BACKEND_URL = "http://localhost:8001";
+    
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMsg = document.getElementById('error-msg');
+    const successMsg = document.getElementById('success-msg');
+    
+    function switchMode(login) {
+      isLoginMode = login;
+      if (login) {
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        submitBtn.innerText = 'Login';
       } else {
-        err.style.display = 'block';
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+        submitBtn.innerText = 'Register';
+      }
+      errorMsg.style.display = 'none';
+      successMsg.style.display = 'none';
+    }
+    
+    tabLogin.addEventListener('click', () => switchMode(true));
+    tabRegister.addEventListener('click', () => switchMode(false));
+
+    submitBtn.addEventListener('click', async () => {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      
+      errorMsg.style.display = 'none';
+      successMsg.style.display = 'none';
+      
+      if (!username || !password) {
+        errorMsg.innerText = 'Please enter both username and password.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+      
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Processing...';
+      
+      try {
+        const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.detail || 'An error occurred');
+        }
+        
+        if (isLoginMode) {
+          localStorage.setItem("isLoggedIn", "true");
+          localStorage.setItem("username", username);
+          localStorage.setItem("token", data.token);
+          window.location.href = "index.html";
+        } else {
+          successMsg.innerText = 'Registration successful! You can now login.';
+          successMsg.style.display = 'block';
+          switchMode(true);
+        }
+      } catch (err) {
+        errorMsg.innerText = err.message;
+        errorMsg.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = isLoginMode ? 'Login' : 'Register';
       }
     });
   </script>

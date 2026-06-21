@@ -1164,3 +1164,45 @@ def get_search_recommendations(
     finally:
         cur.close()
         conn.close()
+
+def create_users_table():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+def create_user(username: str, password_hash: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
+            (username, password_hash)
+        )
+        user_id = cur.fetchone()[0]
+        conn.commit()
+        return user_id
+    finally:
+        cur.close()
+        conn.close()
+
+def get_user(username: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute("SELECT id, username, password_hash FROM users WHERE username = %s", (username,))
+        return cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()

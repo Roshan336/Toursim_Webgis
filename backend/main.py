@@ -15,7 +15,7 @@ from backend.db import (
     get_poi_categories, get_category_stats, get_recommendations,
     run_cluster_analysis, get_nearest_facility, get_density_zones, get_service_area_overlap,
     upsert_osm_pois, get_osm_pois_geojson, get_osm_category_stats, get_search_recommendations,
-    ALL_LAYERS,
+    ALL_LAYERS, create_users_table, create_user, get_user
 )
 from backend.google_routes import GoogleRouteConfigurationError, GoogleRouteError, get_google_route
 from backend.gis_analysis import import_shapefile_to_postgis, search_arcgis_tourism_layers
@@ -33,6 +33,36 @@ app = FastAPI(
     description="Python Backend for Tourism Web GIS utilizing PostGIS, pgRouting, and ArcGIS Python SDK",
     version="1.0.0"
 )
+
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class UserAuth(BaseModel):
+    username: str
+    password: str
+
+@app.on_event("startup")
+def startup_event():
+    create_users_table()
+
+@app.post("/api/auth/register")
+def register_user(user: UserAuth):
+    existing = get_user(user.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    hashed = pwd_context.hash(user.password)
+    user_id = create_user(user.username, hashed)
+    return {"message": "User registered successfully", "id": user_id}
+
+@app.post("/api/auth/login")
+def login_user(user: UserAuth):
+    db_user = get_user(user.username)
+    if not db_user or not pwd_context.verify(user.password, db_user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    return {"message": "Login successful", "username": user.username, "token": "mock-jwt-token"}
 
 # ── Security Headers Middleware ────────────────────────────────────────────────
 # Fixes:
