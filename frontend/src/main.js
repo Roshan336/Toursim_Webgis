@@ -340,12 +340,6 @@ function renderPOIsOnMap(features) {
           <p><strong>Rating:</strong> ⭐ ${props.rating || "N/A"} / 5.0</p>
           <p><strong>Address:</strong> ${props.address || "No address provided"}</p>
           <p>${props.description || "No description available."}</p>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Set Route Start">🚩</button>
-            <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Set Route End">🏁</button>
-            <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${props.name.replace(/'/g, "\\'")}')" title="Buffer from here">⭕</button>
-            <button class="custom-map-btn" onclick="window.deletePoiFromPopup(${props.id}, '${props.name.replace(/'/g, "\\'")}')" title="Remove POI">🗑️</button>
-          </div>
         </div>
       `
     };
