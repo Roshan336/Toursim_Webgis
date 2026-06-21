@@ -208,7 +208,13 @@
             </div>
 
             <div id="overpass-results-container" class="results-container" aria-live="polite">
-              <h4 id="overpass-count-title" class="section-title">0 live POIs loaded</h4>
+              <div class="flex-row-space-between mb-4">
+                <h4 id="overpass-count-title" class="section-title">0 live POIs loaded</h4>
+                <div class="flex-row-gap-4">
+                  <calcite-button id="btn-download-overpass-geojson" appearance="solid" kind="neutral" icon-start="download" size="s">GeoJSON</calcite-button>
+                  <calcite-button id="btn-download-overpass-csv" appearance="solid" kind="neutral" icon-start="download" size="s">CSV</calcite-button>
+                </div>
+              </div>
               <calcite-list id="overpass-results-list" aria-label="Live OSM points of interest">
                 <!-- Dynamically populated -->
               </calcite-list>

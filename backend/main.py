@@ -13,7 +13,9 @@ from backend.db import (
     get_all_pois, add_poi, get_route, get_pois_within_buffer, delete_poi,
     get_geojson_layer, spatial_filter_query, identify_by_location, search_by_attribute,
     get_poi_categories, get_category_stats, get_recommendations,
-    run_cluster_analysis, get_nearest_facility, get_density_zones, get_service_area_overlap
+    run_cluster_analysis, get_nearest_facility, get_density_zones, get_service_area_overlap,
+    upsert_osm_pois, get_osm_pois_geojson, get_osm_category_stats, get_search_recommendations,
+    ALL_LAYERS,
 )
 from backend.google_routes import GoogleRouteConfigurationError, GoogleRouteError, get_google_route
 from backend.gis_analysis import import_shapefile_to_postgis, search_arcgis_tourism_layers
@@ -135,6 +137,53 @@ def get_overpass_pois(
         raise HTTPException(status_code=502, detail=f"Overpass API error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch live OSM data: {str(e)}")
+
+
+@app.post("/api/osm/sync")
+def sync_osm_pois(
+    district: str = Query("all", description="District: kathmandu|lalitpur|bhaktapur|all"),
+    category: Optional[str] = Query(None, description="Optional category filter before save"),
+):
+    """
+    Fetch live OSM data via Overpass and upsert into Postgres osm_pois (by category).
+    """
+    try:
+        payload = fetch_kathmandu_pois(district=district)
+        features = payload.get("features") or []
+        if category and category != "all":
+            features = [f for f in features if f.get("properties", {}).get("category") == category]
+        stats = upsert_osm_pois(features, payload.get("fetched_at"))
+        return {
+            "status": "success",
+            "district": district,
+            "category_filter": category,
+            **stats,
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=f"Overpass API error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OSM sync failed: {str(e)}")
+
+
+@app.get("/api/osm/pois")
+def get_stored_osm_pois(
+    district: Optional[str] = Query(None, description="Filter by district"),
+    category: Optional[str] = Query(None, description="Filter by category code"),
+):
+    """Return stored OSM POIs from Postgres as GeoJSON."""
+    try:
+        return get_osm_pois_geojson(district=district, category=category)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch OSM POIs: {str(e)}")
+
+
+@app.get("/api/osm/stats")
+def osm_category_stats():
+    """Counts of stored OSM POIs grouped by category and district."""
+    try:
+        return get_osm_category_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch OSM stats: {str(e)}")
 
 @app.post("/api/pois")
 def create_poi(poi: POICreate):
@@ -286,7 +335,7 @@ def get_layer_feature_list(layer_name: str):
     """
     Returns a light list of feature names and IDs from a layer to populate dropdown lists.
     """
-    if layer_name not in ("province_layer", "district_layer", "gapanapa_layer", "pois"):
+    if layer_name not in ("province_layer", "district_layer", "gapanapa_layer", "pois", "osm_pois"):
         raise HTTPException(status_code=400, detail="Invalid layer name")
     
     from backend.db import get_connection
@@ -295,6 +344,8 @@ def get_layer_feature_list(layer_name: str):
     try:
         if layer_name == "pois":
             cur.execute("SELECT id, name FROM pois ORDER BY name;")
+        elif layer_name == "osm_pois":
+            cur.execute("SELECT id, name FROM osm_pois ORDER BY name;")
         else:
             cur.execute(f"SELECT id, name FROM {layer_name} ORDER BY name;")
         rows = cur.fetchall()
@@ -407,6 +458,39 @@ def get_poi_recommendations(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recommendations failed: {str(e)}")
+
+
+@app.get("/api/recommendations/search")
+def search_recommendations(
+    layer_name: str = Query(..., description="Layer that was searched"),
+    search_type: str = Query("attribute", description="attribute or spatial"),
+    search_key: Optional[str] = Query(None, description="Field searched (attribute queries)"),
+    search_value: Optional[str] = Query(None, description="Search text/value"),
+    feature_ids: Optional[str] = Query(None, description="Comma-separated result feature IDs"),
+    limit: int = Query(5, ge=1, le=15),
+):
+    """
+    AI-style recommendations after a layer search (attribute or spatial).
+    Combines category affinity, keyword overlap, distance, and optional OpenAI reasons.
+    """
+    if layer_name not in ALL_LAYERS:
+        raise HTTPException(status_code=400, detail="Invalid layer name")
+    ids = []
+    if feature_ids:
+        ids = [int(x.strip()) for x in feature_ids.split(",") if x.strip().isdigit()]
+    try:
+        return get_search_recommendations(
+            layer_name=layer_name,
+            search_type=search_type,
+            search_key=search_key,
+            search_value=search_value,
+            feature_ids=ids,
+            limit=limit,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search recommendations failed: {str(e)}")
 
 
 # ─── PostGIS Spatial Analysis ─────────────────────────────────────────────────

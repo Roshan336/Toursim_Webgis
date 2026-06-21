@@ -936,6 +936,87 @@ function clearOverpassLayer() {
   showToast("Layer Cleared", "Live OSM data removed from map.", "brand");
 }
 
+function downloadOverpassAsGeoJson() {
+  if (!overpassPois || overpassPois.length === 0) {
+    showToast("No data", "There are no live OSM features to download.", "warning");
+    return;
+  }
+  
+  const featureCollection = {
+    type: "FeatureCollection",
+    features: overpassPois
+  };
+  
+  const content = JSON.stringify(featureCollection, null, 2);
+  const blob = new Blob([content], { type: "application/json;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  const district = document.getElementById("overpass-district-select").value;
+  const filename = `osm_live_pois_${district}_${new Date().toISOString().slice(0, 10)}.geojson`;
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("GeoJSON Downloaded", `Downloaded ${overpassPois.length} features to ${filename}`, "success");
+}
+
+function downloadOverpassAsCsv() {
+  if (!overpassPois || overpassPois.length === 0) {
+    showToast("No data", "There are no live OSM features to download.", "warning");
+    return;
+  }
+  
+  const keysSet = new Set();
+  overpassPois.forEach(f => {
+    if (f.properties) {
+      Object.keys(f.properties).forEach(k => keysSet.add(k));
+    }
+  });
+  
+  const headers = Array.from(keysSet);
+  headers.push("longitude");
+  headers.push("latitude");
+  
+  const csvRows = [];
+  csvRows.push(headers.map(h => `"${h.replace(/"/g, '""')}"`).join(","));
+  
+  overpassPois.forEach(f => {
+    const rowValues = headers.map(h => {
+      if (h === "longitude") {
+        return f.geometry && f.geometry.type === "Point" ? f.geometry.coordinates[0] : "";
+      }
+      if (h === "latitude") {
+        return f.geometry && f.geometry.type === "Point" ? f.geometry.coordinates[1] : "";
+      }
+      
+      const val = f.properties && f.properties[h] !== undefined ? f.properties[h] : "";
+      const strVal = typeof val === "object" ? JSON.stringify(val) : String(val);
+      return `"${strVal.replace(/"/g, '""')}"`;
+    });
+    csvRows.push(rowValues.join(","));
+  });
+  
+  const csvContent = csvRows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  const district = document.getElementById("overpass-district-select").value;
+  const filename = `osm_live_pois_${district}_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("CSV Downloaded", `Downloaded ${overpassPois.length} features to ${filename}`, "success");
+}
+
 // 13. UI Events Bindings
 function setupUIEventListeners() {
   // Action bar buttons
@@ -1034,6 +1115,8 @@ function setupUIEventListeners() {
   // Overpass live data buttons
   document.getElementById("btn-fetch-overpass").addEventListener("click", fetchOverpassData);
   document.getElementById("btn-clear-overpass").addEventListener("click", clearOverpassLayer);
+  document.getElementById("btn-download-overpass-geojson").addEventListener("click", downloadOverpassAsGeoJson);
+  document.getElementById("btn-download-overpass-csv").addEventListener("click", downloadOverpassAsCsv);
 
   // Upload shapefile button
   document.getElementById("btn-upload-shp").addEventListener("click", uploadShapefile);

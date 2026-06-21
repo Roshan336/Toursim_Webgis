@@ -41,6 +41,64 @@ html, body {
   padding: 0;
 }
 
+/* Floating map legend — ArcGIS Scene-style symbology key */
+.map-category-legend {
+  position: fixed;
+  top: calc(72px + 10pt);
+  right: 16px;
+  z-index: 8;
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 4px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  font-family: "Outfit", sans-serif;
+  min-width: 168px;
+  max-width: 220px;
+}
+
+.map-category-legend-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #323232;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.map-category-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-category-legend-items .category-legend-item {
+  font-size: 0.78rem;
+  color: #444;
+}
+
+.map-category-legend-items .category-legend-pin {
+  width: 22px;
+  height: 22px;
+}
+
+.calcite-theme-dark .map-category-legend,
+.calcite-mode-dark .map-category-legend {
+  background: rgba(36, 36, 36, 0.96);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.calcite-theme-dark .map-category-legend-title,
+.calcite-mode-dark .map-category-legend-title {
+  color: #f3f3f3;
+  border-bottom-color: #4a4a4a;
+}
+
+.calcite-theme-dark .map-category-legend-items .category-legend-item,
+.calcite-mode-dark .map-category-legend-items .category-legend-item {
+  color: #d4d4d4;
+}
+
 /* ═══════════════════════════════════════════════
    LAYER 1 — Calcite Shell (overlays the map)
    pointer-events: none on root lets map clicks
@@ -118,6 +176,199 @@ calcite-shell calcite-panel {
 .basemap-card-content {
   padding: 10px;
   background-color: var(--calcite-ui-background);
+}
+
+/* Tourist map tools — bottom-right, collapsed to icon by default */
+.tourist-tools-panel {
+  top: auto;
+  bottom: 28px;
+  right: 20px;
+  width: auto;
+  z-index: 22;
+}
+
+.tourist-tools-panel #gis-panel-card {
+  width: 360px;
+  transition: width 200ms ease-in-out, box-shadow 200ms ease-in-out;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tourist-tools-panel.collapsed #gis-panel-card {
+  width: 64px;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 121, 193, 0.35);
+}
+
+.tourist-tools-toggle {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.tourist-tools-panel.collapsed .tourist-tools-toggle {
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+  border-bottom: none;
+  border-radius: 50%;
+  min-height: 64px;
+}
+
+.tourist-tools-panel.collapsed .tourist-tools-toggle calcite-icon:first-of-type {
+  --calcite-icon-size: 28px;
+  color: var(--ago-header-blue, #0079c1);
+}
+
+.tourist-tools-toggle:hover {
+  background-color: var(--calcite-ui-foreground-2, #f1f5f9);
+}
+
+.tourist-tools-panel.collapsed .tourist-tools-label,
+.tourist-tools-panel.collapsed .tourist-tools-chevron {
+  display: none;
+}
+
+.tourist-tools-label {
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+}
+
+.tourist-tools-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tourist-tools-hint {
+  font-size: 0.78rem;
+  color: var(--calcite-ui-text-3, #64748b);
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.tourist-tools-scroll {
+  max-height: min(480px, calc(100vh - 160px));
+  overflow: auto;
+  padding: 10px 12px 12px;
+}
+
+.tourist-tools-scroll calcite-block {
+  margin-bottom: 6px;
+}
+
+.tourist-tools-scroll .form-group label,
+.tourist-tools-scroll label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--calcite-ui-text-2, #475569);
+}
+
+.tourist-tools-advanced {
+  display: none;
+}
+
+.overpass-category-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.gis-ai-recommendations {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(0, 121, 193, 0.06), rgba(0, 121, 193, 0.02));
+  border: 1px solid rgba(0, 121, 193, 0.15);
+}
+
+.gis-ai-rec-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ago-header-blue, #0079c1);
+  margin-bottom: 6px;
+}
+
+.gis-ai-rec-hint {
+  font-size: 0.75rem;
+  color: var(--calcite-ui-text-3, #64748b);
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+
+.gis-ai-rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.gis-ai-rec-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--calcite-ui-foreground-1, #fff);
+  border: 1px solid var(--calcite-ui-border-2, #e2e8f0);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gis-ai-rec-card:hover {
+  border-color: var(--ago-header-blue, #0079c1);
+  box-shadow: 0 2px 6px rgba(0, 121, 193, 0.12);
+}
+
+.gis-ai-rec-rank {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ago-header-blue, #0079c1);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gis-ai-rec-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--calcite-ui-text-1, #1e293b);
+}
+
+.gis-ai-rec-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 0.72rem;
+}
+
+.gis-ai-rec-reason {
+  font-size: 0.74rem;
+  color: var(--calcite-ui-text-2, #475569);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.gis-ai-rec-source,
+.gis-ai-rec-dist,
+.gis-ai-rec-score {
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--calcite-ui-foreground-2, #f1f5f9);
+  color: var(--calcite-ui-text-3, #64748b);
 }
 
 /* ═══════════════════════════════════════════════
@@ -835,4 +1086,267 @@ body {
   gap: 8px;
 }
 
+/* ═══════════════════════════════════════════════
+   ARCGIS ONLINE — HEADER SEARCH & NAVIGATION
+   ═══════════════════════════════════════════════ */
+.ago-navigation {
+  --ago-header-blue: #0079c1;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ago-header-search {
+  flex: 1;
+  max-width: 560px;
+  min-width: 200px;
+  margin: 0 16px;
+  pointer-events: auto;
+}
+
+.ago-header-search calcite-input {
+  --calcite-input-background-color: #f4f6f8;
+  --calcite-input-border-color: #d1d5db;
+  border-radius: 4px;
+}
+
+.calcite-theme-dark .ago-header-search calcite-input,
+.calcite-mode-dark .ago-header-search calcite-input {
+  --calcite-input-background-color: #2d3748;
+  --calcite-input-border-color: #4a5568;
+}
+
+.ago-search-results-panel {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(420px, 55vh);
+  background: var(--calcite-ui-foreground-1, #fff);
+  border: 1px solid var(--calcite-ui-border-2, #e2e8f0);
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.ago-search-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--calcite-ui-foreground-2, #f8fafc);
+  border-bottom: 1px solid var(--calcite-ui-border-3, #e2e8f0);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--calcite-ui-text-2, #64748b);
+}
+
+.ago-search-section {
+  overflow-y: auto;
+  max-height: 180px;
+}
+
+.ago-search-section-label {
+  padding: 8px 14px 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--calcite-ui-text-3, #94a3b8);
+}
+
+.ago-search-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--calcite-ui-text-2, #64748b);
+}
+
+.ago-search-result-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════
+   TOURIST EXPLORE — CATEGORY GRID & LAYER LIST
+   ═══════════════════════════════════════════════ */
+.filter-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--calcite-ui-text-3, #64748b);
+  margin-bottom: 4px;
+}
+
+.tourist-welcome-notice {
+  margin-bottom: 4px;
+}
+
+.category-explore-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.category-explore-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--calcite-ui-border-2, #e2e8f0);
+  border-radius: 8px;
+  background: var(--calcite-ui-foreground-1, #fff);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+
+.category-explore-card:hover {
+  border-color: var(--ago-header-blue, #0079c1);
+  box-shadow: 0 2px 8px rgba(0, 121, 193, 0.12);
+  transform: translateY(-1px);
+}
+
+.category-explore-card.active {
+  border-color: var(--ago-header-blue, #0079c1);
+  background: linear-gradient(135deg, rgba(0, 121, 193, 0.08), rgba(0, 121, 193, 0.04));
+  box-shadow: 0 0 0 2px rgba(0, 121, 193, 0.2);
+}
+
+.category-explore-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.category-explore-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-explore-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--calcite-ui-text-1, #1e293b);
+  line-height: 1.2;
+}
+
+.category-explore-count {
+  font-size: 0.72rem;
+  color: var(--calcite-ui-text-3, #94a3b8);
+  margin-top: 2px;
+}
+
+.category-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--calcite-ui-foreground-2, #f8fafc);
+  border: 1px solid var(--calcite-ui-border-3, #f1f5f9);
+}
+
+.category-layer-pin {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.category-layer-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--calcite-ui-text-1, #334155);
+}
+
+.category-layer-count {
+  font-size: 0.72rem;
+  color: var(--calcite-ui-text-3, #94a3b8);
+  margin-right: 4px;
+}
+
+.category-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--calcite-ui-border-3, #e2e8f0);
+}
+
+.category-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  color: var(--calcite-ui-text-2, #64748b);
+}
+
+.category-legend-pin {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* District badges in popups */
+.district-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.district-kathmandu { background: #dbeafe; color: #1d4ed8; }
+.district-lalitpur  { background: #fce7f3; color: #be185d; }
+.district-bhaktapur { background: #fef3c7; color: #b45309; }
+
+@media (max-width: 768px) {
+  .ago-header-search {
+    max-width: none;
+    margin: 0 8px;
+  }
+
+  .category-explore-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ago-search-results-panel {
+    left: 16px;
+    right: 16px;
+    transform: none;
+    width: auto;
+  }
+}
 

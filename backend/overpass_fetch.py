@@ -56,6 +56,18 @@ OSM_CATEGORY_MAP = {
     "garden":     "park",
     "nature_reserve": "park",
     "forest":     "park",
+    # shopping
+    "shop":           "shopping",
+    "marketplace":    "shopping",
+    "mall":           "shopping",
+    "department_store":"shopping",
+    "supermarket":    "shopping",
+    # adventure / outdoor
+    "sports_centre":  "adventure",
+    "climbing":       "adventure",
+    "pitch":          "adventure",
+    "stadium":        "adventure",
+    "marina":         "adventure",
 }
 
 # District name detection by bounding box
@@ -82,6 +94,9 @@ def _build_overpass_query(bounds: tuple) -> str:
   node["tourism"="guest_house"]({bb});
   node["amenity"="restaurant"]["name"]({bb});
   node["amenity"="cafe"]["name"]({bb});
+  node["shop"]["name"]({bb});
+  node["amenity"="marketplace"]["name"]({bb});
+  node["leisure"="sports_centre"]["name"]({bb});
 );
 out body;
 """
@@ -112,6 +127,10 @@ def _get_category(tags: dict) -> str:
         return "temple"
     if historic:
         return "heritage"
+    if leisure in ("sports_centre", "pitch", "stadium"):
+        return "adventure"
+    if amenity in ("marketplace",) or tags.get("shop"):
+        return "shopping"
     if tourism:
         return "attraction"
 
@@ -239,7 +258,7 @@ def fetch_kathmandu_pois(district: str = "all") -> dict:
 
     # Sort: heritage first, then temples, then the rest
     category_order = {"heritage": 0, "temple": 1, "attraction": 2,
-                      "park": 3, "hotel": 4, "restaurant": 5}
+                      "park": 3, "hotel": 4, "restaurant": 5, "shopping": 6, "adventure": 7}
     features.sort(key=lambda f: category_order.get(f["properties"]["category"], 9))
 
     return {

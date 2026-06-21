@@ -11,6 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgrouting;
 
 -- Drop existing tables (order matters due to FK)
 DROP TABLE IF EXISTS poi_recommendations CASCADE;
+DROP TABLE IF EXISTS osm_pois CASCADE;
 DROP TABLE IF EXISTS poi_categories CASCADE;
 DROP TABLE IF EXISTS pois CASCADE;
 DROP TABLE IF EXISTS roads CASCADE;
@@ -29,14 +30,41 @@ CREATE TABLE poi_categories (
 );
 
 INSERT INTO poi_categories (code, label, color_hex, icon, description) VALUES
-('heritage',    'Heritage Site',       '#8B4513', 'monument',        'UNESCO World Heritage Sites and historic monuments of the Kathmandu Valley'),
-('temple',      'Temple / Religious',  '#C0392B', 'bookmark-catalog','Hindu and Buddhist temples, stupas, gompas and monasteries'),
-('attraction',  'Tourist Attraction',  '#2980B9', 'tour',            'Museums, palaces, viewpoints and general visitor attractions'),
-('hotel',       'Hotel / Lodging',     '#E67E22', 'home',            'Hotels, resorts, guesthouses and accommodation'),
-('restaurant',  'Restaurant / Dining', '#E74C3C', 'fork-spoon',      'Restaurants, cafes, food courts and traditional dining'),
-('park',        'Park / Garden',       '#27AE60', 'nature',          'National parks, urban gardens, botanical parks and recreational areas'),
-('adventure',   'Adventure / Outdoor', '#8E44AD', 'activity',        'Trekking, hiking, rafting, bungee jumping and outdoor adventure sports'),
+('heritage',    'Heritage Site',       '#795548', 'star',            'UNESCO World Heritage Sites and historic monuments of the Kathmandu Valley'),
+('temple',      'Temple / Religious',  '#6D4C41', 'book',            'Hindu and Buddhist temples, stupas, gompas and monasteries'),
+('attraction',  'Tourist Attraction',  '#C2185B', 'tour',            'Museums, palaces, viewpoints and general visitor attractions'),
+('hotel',       'Hotel / Lodging',     '#29B6F6', 'home',            'Hotels, resorts, guesthouses and accommodation'),
+('restaurant',  'Restaurant / Dining', '#E65100', 'heart',           'Restaurants, cafes, food courts and traditional dining'),
+('park',        'Park / Garden',       '#00897B', 'tree',            'National parks, urban gardens, botanical parks and recreational areas'),
+('adventure',   'Adventure / Outdoor', '#8E44AD', 'compass',         'Trekking, hiking, rafting, bungee jumping and outdoor adventure sports'),
 ('shopping',    'Shopping / Market',   '#16A085', 'label',           'Local markets, bazaars, handicraft shops and souvenir stores');
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 1b. OpenStreetMap POIs (Overpass data stored separately by category)
+-- ═══════════════════════════════════════════════════════════════════
+CREATE TABLE osm_pois (
+    id          SERIAL PRIMARY KEY,
+    osm_id      BIGINT UNIQUE NOT NULL,
+    name        VARCHAR(150) NOT NULL,
+    category    VARCHAR(50)  NOT NULL REFERENCES poi_categories(code),
+    district    VARCHAR(50),
+    description TEXT,
+    address     VARCHAR(255),
+    website     TEXT,
+    image_url   TEXT,
+    tags        JSONB DEFAULT '{}'::jsonb,
+    fetched_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    geom        GEOMETRY(Point, 4326) NOT NULL
+);
+
+CREATE INDEX osm_pois_geom_idx ON osm_pois USING gist(geom);
+CREATE INDEX osm_pois_category_idx ON osm_pois (category);
+CREATE INDEX osm_pois_district_idx ON osm_pois (district);
+CREATE INDEX osm_pois_tags_idx ON osm_pois USING gin(tags);
+
+CREATE OR REPLACE VIEW osm_category_stats AS
+SELECT category, district, COUNT(*)::int AS poi_count, MAX(fetched_at) AS last_synced
+FROM osm_pois GROUP BY category, district ORDER BY category, district;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 2. Points of Interest Table
