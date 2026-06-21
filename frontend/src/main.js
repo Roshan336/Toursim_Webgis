@@ -11,6 +11,7 @@ import Point from "@arcgis/core/geometry/Point";
 import Polyline from "@arcgis/core/geometry/Polyline";
 import Polygon from "@arcgis/core/geometry/Polygon";
 import Zoom from "@arcgis/core/widgets/Zoom";
+import DistanceMeasurement2D from "@arcgis/core/widgets/DistanceMeasurement2D";
 
 // Calcite Custom Elements Loader
 import { defineCustomElements } from '@esri/calcite-components/dist/loader';
@@ -102,6 +103,8 @@ let routingStartCoords = null; // [lon, lat]
 let routingEndCoords = null; // [lon, lat]
 let routingClickMode = null; // 'start' | 'end' | null
 let bufferCenterPoint = null;
+let measurementWidget = null;
+let isLoggedIn = false;
 let isochroneCenterPoint = null;
 let lastClickedCoords = null;
 let activeCategoryFilter = "all";
@@ -183,6 +186,12 @@ function initMap() {
 
   view.when(() => {
     view.ui.add(new Zoom({ view }), "top-left");
+    
+    measurementWidget = new DistanceMeasurement2D({
+      view: view,
+      container: "measure-container"
+    });
+
     console.log("Map and UI components loaded successfully.");
   }).catch(err => {
     console.error("MapView failed to load:", err);
@@ -609,8 +618,12 @@ async function runBufferQuery() {
   const radius = document.getElementById("buffer-distance").value;
   const { lon, lat } = bufferCenterPoint;
 
+  const activeChip = document.querySelector(".filter-chip[active]");
+  const category = activeChip && activeChip.value !== 'all' ? activeChip.value : '';
+  const categoryParam = category ? `&category=${category}` : '';
+
   try {
-    const url = `${BACKEND_URL}/api/analysis/buffer?lon=${lon}&lat=${lat}&distance=${radius}`;
+    const url = `${BACKEND_URL}/api/analysis/buffer?lon=${lon}&lat=${lat}&distance=${radius}${categoryParam}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error("Buffer query failed");
     const result = await response.json();
@@ -1074,7 +1087,7 @@ function setupUIEventListeners() {
       actions.forEach(act => act.removeAttribute("active"));
       targetAction.setAttribute("active", "");
 
-      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
+      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-isochrones", "panel-recommend", "panel-spatial-analysis", "panel-measure"];
       panels.forEach(pId => {
         const panel = document.getElementById(pId);
         if (panel) {
@@ -1136,6 +1149,24 @@ function setupUIEventListeners() {
       const term = document.getElementById("poi-search").value.toLowerCase().trim();
       filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
     });
+  });
+
+  // Login / Logout Logic
+  const actionLogin = document.getElementById("action-login");
+  
+  // Check auth state on load
+  if (localStorage.getItem("isLoggedIn") === "true") {
+    const user = localStorage.getItem("username") || "User";
+    actionLogin.setAttribute("text", `Logout (${user})`);
+    isLoggedIn = true;
+  }
+
+  actionLogin.addEventListener("click", () => {
+    if (localStorage.getItem("isLoggedIn") === "true") {
+      window.location.href = "logout.html";
+    } else {
+      window.location.href = "login.html";
+    }
   });
 
   // Route buttons

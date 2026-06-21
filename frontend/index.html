@@ -33,6 +33,7 @@
           Valley</calcite-chip>
         <calcite-action id="theme-toggle" class="theme-toggle-action" text="Toggle light/dark theme" icon="moon"
           aria-label="Toggle light and dark theme"></calcite-action>
+        <calcite-action id="action-login" text="Login" icon="user" aria-label="Login/Logout"></calcite-action>
       </calcite-navigation-right>
     </calcite-navigation>
 
@@ -53,7 +54,19 @@
           aria-label="Show smart recommendations panel"></calcite-action>
         <calcite-action id="action-spatial-analysis" text="Spatial Analysis" icon="analysis"
           aria-label="Show PostGIS spatial analysis panel"></calcite-action>
+        <calcite-action id="action-measure" text="Measure Distance" icon="measure"
+          aria-label="Show distance measurement tool"></calcite-action>
       </calcite-action-bar>
+
+      <!-- ── Tab: Measure Distance ─────────────────────────────── -->
+      <calcite-panel heading="Measure Distance" id="panel-measure" closed>
+        <div class="panel-content">
+          <calcite-notice open icon="measure" width="full">
+            <div slot="message">Measure distances on the map. Click on the map to start drawing a line. Double-click to finish.</div>
+          </calcite-notice>
+          <div id="measure-container" style="margin-top: 1rem;"></div>
+        </div>
+      </calcite-panel>
 
       <!-- ── Tab 1: POIs List ──────────────────────────────────── -->
       <calcite-panel heading="Tourism Spots" id="panel-pois">

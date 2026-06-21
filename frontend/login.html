@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TourGIS - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .login-container {
+      background: #ffffff;
+      padding: 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: #1e293b;
+    }
+    .login-header p {
+      margin: 0.5rem 0 0;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #475569;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .login-btn:hover {
+      background: #2563eb;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      color: #64748b;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .back-link:hover {
+      color: #3b82f6;
+    }
+    #error-msg {
+      color: #ef4444;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <h1>Welcome to TourGIS</h1>
+      <p>Please enter your credentials to login</p>
+    </div>
+    
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" placeholder="Enter your username">
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter your password">
+    </div>
+    
+    <div id="error-msg">Please enter a valid username.</div>
+    
+    <button class="login-btn" id="login-btn">Login</button>
+    
+    <a href="index.html" class="back-link">Return to Map</a>
+  </div>
+
+  <script>
+    document.getElementById('login-btn').addEventListener('click', () => {
+      const user = document.getElementById('username').value.trim();
+      const err = document.getElementById('error-msg');
+      
+      if (user) {
+        err.style.display = 'none';
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("username", user);
+        window.location.href = "index.html";
+      } else {
+        err.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
