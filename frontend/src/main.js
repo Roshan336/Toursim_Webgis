@@ -146,9 +146,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // 1. Initialize Map and Views
 function initMap() {
-  provinceGraphicsLayer = new GraphicsLayer({ id: "province-layer", opacity: 0.4 });
-  districtGraphicsLayer = new GraphicsLayer({ id: "district-layer", opacity: 0.4 });
-  gapanapaGraphicsLayer = new GraphicsLayer({ id: "gapanapa-layer", opacity: 0.3 });
+  provinceGraphicsLayer = new GraphicsLayer({ id: "province-layer", opacity: 1.0 });
+  districtGraphicsLayer = new GraphicsLayer({ id: "district-layer", opacity: 1.0 });
+  gapanapaGraphicsLayer = new GraphicsLayer({ id: "gapanapa-layer", opacity: 1.0 });
   selectionGraphicsLayer = new GraphicsLayer({ id: "selection-layer" });
   isochronesGraphicsLayer = new GraphicsLayer({ id: "isochrones-layer" });
   
@@ -1466,17 +1466,6 @@ function setupGeoJsonUIEventListeners() {
     }
   });
 
-  // 2. Opacity Sliders
-  document.getElementById("slider-opacity-province").addEventListener("calciteSliderChange", (e) => {
-    provinceGraphicsLayer.opacity = e.target.value / 100;
-  });
-  document.getElementById("slider-opacity-district").addEventListener("calciteSliderChange", (e) => {
-    districtGraphicsLayer.opacity = e.target.value / 100;
-  });
-  document.getElementById("slider-opacity-gapanapa").addEventListener("calciteSliderChange", (e) => {
-    gapanapaGraphicsLayer.opacity = e.target.value / 100;
-  });
-
   // 3. Identify Click Toggle
   const btnToggleIdentify = document.getElementById("btn-toggle-identify");
   btnToggleIdentify.addEventListener("click", () => {
@@ -2199,12 +2188,6 @@ function setupGeocoder() {
                 content: `
                   <div style="font-family: 'Outfit', sans-serif;">
                     <p style="margin: 0 0 8px 0; font-size: 0.9em; color: #555;"><b>Location:</b> ${props.label || "Nepal"}</p>
-                    <div style="display:flex;gap:8px;margin-top:10px;">
-                      <button class="custom-map-btn" onclick="window.setStartFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Set Route Start">🚩 Start</button>
-                      <button class="custom-map-btn" onclick="window.setEndFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Set Route End">🏁 End</button>
-                      <button class="custom-map-btn" onclick="window.setBufferFromPopup(${coords[0]}, ${coords[1]}, '${placeName.replace(/'/g, "\\'")}')" title="Buffer here">⭕ Buffer</button>
-                      <button class="custom-map-btn" onclick="window.openAddPoiModal(${coords[0]}, ${coords[1]})" title="Save POI">💾 Save</button>
-                    </div>
                   </div>
                 `
               });
