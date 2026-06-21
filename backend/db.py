@@ -156,19 +156,26 @@ def get_route(start_lon, start_lat, end_lon, end_lat):
         cur.close()
         conn.close()
 
-def get_pois_within_buffer(lon, lat, distance_meters):
+def get_pois_within_buffer(lon, lat, distance_meters, category=None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        query = """
+        query_params = [lon, lat, lon, lat, distance_meters]
+        category_clause = ""
+        if category and category != "all":
+            category_clause = "AND category = %s"
+            query_params.append(category)
+
+        query = f"""
             SELECT id, name, category, description, rating, image_url, address,
                    ST_X(geom) AS lon, ST_Y(geom) AS lat,
                    ST_Distance(geom::geography, ST_SetSRID(ST_Point(%s, %s), 4326)::geography) AS distance_meters
             FROM pois
             WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_Point(%s, %s), 4326)::geography, %s)
+            {category_clause}
             ORDER BY distance_meters;
         """
-        cur.execute(query, (lon, lat, lon, lat, distance_meters))
+        cur.execute(query, tuple(query_params))
         rows = cur.fetchall()
         
         # Build buffer polygon (for visual display on client)

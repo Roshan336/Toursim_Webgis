@@ -134,7 +134,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupUIEventListeners();
   setupGeocoder();
   setupRoutingGeocoders();
-  fetchPOIs();
+  setupLayersDrawer();
+  initIsochroneUI();
+  initAnalysisPanels();
+  // Silently pre-load POI data in the background.
+  // Nothing is rendered until the user picks a category or searches.
+  await fetchPOIsData();
+  populatePoiSelects();
+  showPOIEmptyState();
 });
 
 // 1. Initialize Map and Views
@@ -237,18 +244,31 @@ function initMap() {
 }
 
 // 2. Fetch Points of Interest from Backend
-async function fetchPOIs() {
+// Silent background fetch — loads data into allPois without rendering anything.
+async function fetchPOIsData() {
   try {
     const response = await fetch(`${BACKEND_URL}/api/pois`);
     if (!response.ok) throw new Error("Database connection failed");
     const geojson = await response.json();
-    
     allPois = geojson.features || [];
-    renderPOIsOnMap(allPois);
-    populatePOIList(allPois);
     populateRoutingSelects(allPois);
   } catch (error) {
     showToast("Error loading tourist spots", "Could not connect to PostGIS backend. Check if FastAPI is running.", "danger");
+  }
+}
+
+// Full fetch + render — used after adding or deleting a POI.
+async function fetchPOIs() {
+  await fetchPOIsData();
+  // After a data mutation, re-apply the current filter so results stay consistent.
+  const term = document.getElementById("poi-search")?.value?.toLowerCase().trim() || "";
+  const hasFilter = activeCategoryFilter !== "all" || activeDistrictFilter !== "all" || term !== "";
+  if (hasFilter) {
+    filterAndRenderPOIs(term, activeCategoryFilter, activeDistrictFilter);
+  } else {
+    // No active filter — keep map/list clean; just show empty state.
+    poiGraphicsLayer.removeAll();
+    showPOIEmptyState();
   }
 }
 
@@ -326,12 +346,26 @@ function renderPOIsOnMap(features) {
 }
 
 // 4. Render POIs in Sidebar list
+// Show a friendly empty-state prompt in the POI list.
+function showPOIEmptyState(message) {
+  const list = document.getElementById("pois-list");
+  if (!list) return;
+  const msg = message || "Choose a category above or search for a place to explore tourism spots.";
+  list.innerHTML = `
+    <div class="poi-empty-state">
+      <calcite-icon icon="map-pin" scale="l" style="color: var(--calcite-ui-brand);"></calcite-icon>
+      <p class="poi-empty-title">Discover Nepal</p>
+      <p class="poi-empty-hint">${msg}</p>
+    </div>
+  `;
+}
+
 function populatePOIList(features) {
   const list = document.getElementById("pois-list");
   list.innerHTML = "";
 
   if (features.length === 0) {
-    list.innerHTML = "<calcite-list-item description='No tourism spots found.'></calcite-list-item>";
+    showPOIEmptyState("No tourism spots match your filter. Try a different category or search term.");
     return;
   }
 
@@ -817,7 +851,7 @@ async function saveNewPOI() {
 }
 
 function getActivePanelId() {
-  const actions = ["action-pois", "action-routing", "action-buffer", "action-live", "action-upload", "action-arcgis", "action-geojson", "action-isochrones", "action-recommend", "action-spatial-analysis"];
+  const actions = ["action-pois", "action-routing", "action-buffer", "action-isochrones", "action-recommend", "action-spatial-analysis"];
   for (const act of actions) {
     const el = document.getElementById(act);
     if (el && el.hasAttribute("active")) {
@@ -1040,13 +1074,15 @@ function setupUIEventListeners() {
       actions.forEach(act => act.removeAttribute("active"));
       targetAction.setAttribute("active", "");
 
-      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-live", "panel-upload", "panel-arcgis", "panel-geojson", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
+      const panels = ["panel-pois", "panel-routing", "panel-buffer", "panel-isochrones", "panel-recommend", "panel-spatial-analysis"];
       panels.forEach(pId => {
         const panel = document.getElementById(pId);
-        if (pId === panelId) {
-          panel.closed = false;
-        } else {
-          panel.closed = true;
+        if (panel) {
+          if (pId === panelId) {
+            panel.closed = false;
+          } else {
+            panel.closed = true;
+          }
         }
       });
     }
@@ -1112,20 +1148,6 @@ function setupUIEventListeners() {
   // Buffer buttons
   document.getElementById("btn-run-buffer").addEventListener("click", runBufferQuery);
 
-  // Overpass live data buttons
-  document.getElementById("btn-fetch-overpass").addEventListener("click", fetchOverpassData);
-  document.getElementById("btn-clear-overpass").addEventListener("click", clearOverpassLayer);
-  document.getElementById("btn-download-overpass-geojson").addEventListener("click", downloadOverpassAsGeoJson);
-  document.getElementById("btn-download-overpass-csv").addEventListener("click", downloadOverpassAsCsv);
-
-  // Upload shapefile button
-  document.getElementById("btn-upload-shp").addEventListener("click", uploadShapefile);
-
-  // ArcGIS search button
-  document.getElementById("btn-arcgis-search").addEventListener("click", runArcGisSearch);
-  document.getElementById("arcgis-search-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") runArcGisSearch();
-  });
 
   // Save/Cancel POI (Calcite Dialog Events)
   const poiDialog = document.getElementById("add-poi-modal");
@@ -1184,6 +1206,14 @@ function setupUIEventListeners() {
 
 // Client filtering helper
 function filterAndRenderPOIs(term, category, district) {
+  // If nothing is selected/searched, keep map clean and show empty state.
+  const hasFilter = category !== "all" || district !== "all" || term !== "";
+  if (!hasFilter) {
+    poiGraphicsLayer.removeAll();
+    showPOIEmptyState();
+    return;
+  }
+
   const filtered = allPois.filter(feature => {
     const props = feature.properties;
     const matchesSearch = props.name.toLowerCase().includes(term) ||
@@ -1334,6 +1364,50 @@ function updateRouteTempMarkers() {
     });
     tempGraphicsLayer.add(endMarker);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOATING LAYERS DRAWER LOGIC
+// ═══════════════════════════════════════════════════════════════════
+
+function setupLayersDrawer() {
+  const drawer = document.getElementById("layers-drawer");
+  const backdrop = document.getElementById("layers-drawer-backdrop");
+  const openBtn = document.getElementById("btn-open-layers-drawer");
+  const closeBtn = document.getElementById("btn-close-layers-drawer");
+
+  function openDrawer() {
+    drawer.classList.add("open");
+    backdrop.classList.remove("hidden");
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove("open");
+    backdrop.classList.add("hidden");
+  }
+
+  if (openBtn) openBtn.addEventListener("click", openDrawer);
+  if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+  if (backdrop) backdrop.addEventListener("click", closeDrawer);
+
+  // Section Accordion Logic
+  const sectionHeaders = document.querySelectorAll(".ld-section-header");
+  sectionHeaders.forEach(header => {
+    header.addEventListener("click", () => {
+      const sectionId = header.getAttribute("data-section");
+      const body = document.getElementById(`ld-body-${sectionId}`);
+      
+      if (body.classList.contains("collapsed")) {
+        // Expand
+        body.classList.remove("collapsed");
+        header.classList.remove("collapsed");
+      } else {
+        // Collapse
+        body.classList.add("collapsed");
+        header.classList.add("collapsed");
+      }
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2476,47 +2550,53 @@ function clearIsochrones() {
 }
 
 // Initialize Isochrone UI sliders and forms
-(function initIsochroneUI() {
-  document.addEventListener("DOMContentLoaded", () => {
-    const rangeTypeSelect = document.getElementById("iso-range-type");
-    const slider1 = document.getElementById("slider-iso-range-1");
-    const slider2 = document.getElementById("slider-iso-range-2");
-    const slider3 = document.getElementById("slider-iso-range-3");
-    const lbl1 = document.getElementById("lbl-iso-range-1");
-    const lbl2 = document.getElementById("lbl-iso-range-2");
-    const lbl3 = document.getElementById("lbl-iso-range-3");
-    
-    const updateLabels = () => {
-      const type = rangeTypeSelect.value;
-      const suffix = type === "time" ? "min" : "m";
-      lbl1.textContent = `Range 1: ${slider1.value} ${suffix}`;
-      lbl2.textContent = `Range 2: ${slider2.value} ${suffix}`;
-      lbl3.textContent = `Range 3: ${slider3.value} ${suffix}`;
-    };
-    
-    rangeTypeSelect.addEventListener("calciteSelectChange", () => {
-      const type = rangeTypeSelect.value;
-      if (type === "time") {
-        slider1.min = 1; slider1.max = 60; slider1.value = 5; slider1.step = 1;
-        slider2.min = 1; slider2.max = 60; slider2.value = 10; slider2.step = 1;
-        slider3.min = 1; slider3.max = 60; slider3.value = 15; slider3.step = 1;
-      } else {
-        slider1.min = 100; slider1.max = 20000; slider1.value = 1000; slider1.step = 100;
-        slider2.min = 100; slider2.max = 20000; slider2.value = 2000; slider2.step = 100;
-        slider3.min = 100; slider3.max = 20000; slider3.value = 5000; slider3.step = 100;
-      }
-      updateLabels();
-    });
-    
-    slider1.addEventListener("calciteSliderChange", updateLabels);
-    slider2.addEventListener("calciteSliderChange", updateLabels);
-    slider3.addEventListener("calciteSliderChange", updateLabels);
-    
-    // Bind buttons
-    document.getElementById("btn-run-isochrones").addEventListener("click", runIsochroneAnalysis);
-    document.getElementById("btn-clear-isochrones").addEventListener("click", clearIsochrones);
+// Called from the main DOMContentLoaded so the DOM is always ready.
+function initIsochroneUI() {
+  const rangeTypeSelect = document.getElementById("iso-range-type");
+  const slider1 = document.getElementById("slider-iso-range-1");
+  const slider2 = document.getElementById("slider-iso-range-2");
+  const slider3 = document.getElementById("slider-iso-range-3");
+  const lbl1 = document.getElementById("lbl-iso-range-1");
+  const lbl2 = document.getElementById("lbl-iso-range-2");
+  const lbl3 = document.getElementById("lbl-iso-range-3");
+
+  if (!rangeTypeSelect || !slider1) {
+    console.warn("Isochrone UI elements not found — skipping init.");
+    return;
+  }
+
+  const updateLabels = () => {
+    const type = rangeTypeSelect.value;
+    const suffix = type === "time" ? "min" : "m";
+    if (lbl1) lbl1.textContent = `Range 1: ${slider1.value} ${suffix}`;
+    if (lbl2) lbl2.textContent = `Range 2: ${slider2.value} ${suffix}`;
+    if (lbl3) lbl3.textContent = `Range 3: ${slider3.value} ${suffix}`;
+  };
+
+  rangeTypeSelect.addEventListener("calciteSelectChange", () => {
+    const type = rangeTypeSelect.value;
+    if (type === "time") {
+      slider1.min = 1;   slider1.max = 60;    slider1.value = 5;    slider1.step = 1;
+      slider2.min = 1;   slider2.max = 60;    slider2.value = 10;   slider2.step = 1;
+      slider3.min = 1;   slider3.max = 60;    slider3.value = 15;   slider3.step = 1;
+    } else {
+      slider1.min = 100; slider1.max = 20000; slider1.value = 1000; slider1.step = 100;
+      slider2.min = 100; slider2.max = 20000; slider2.value = 2000; slider2.step = 100;
+      slider3.min = 100; slider3.max = 20000; slider3.value = 5000; slider3.step = 100;
+    }
+    updateLabels();
   });
-})();
+
+  slider1.addEventListener("calciteSliderChange", updateLabels);
+  slider2.addEventListener("calciteSliderChange", updateLabels);
+  slider3.addEventListener("calciteSliderChange", updateLabels);
+
+  // Bind buttons
+  const btnRun   = document.getElementById("btn-run-isochrones");
+  const btnClear = document.getElementById("btn-clear-isochrones");
+  if (btnRun)   btnRun.addEventListener("click", runIsochroneAnalysis);
+  if (btnClear) btnClear.addEventListener("click", clearIsochrones);
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2542,30 +2622,45 @@ const CLUSTER_PALETTE = [
   "#FF5722","#607D8B","#795548","#9C27B0","#03A9F4"
 ];
 
-/** Populate POI dropdowns in recommendations and spatial analysis panels */
-async function populatePoiSelects() {
+/** Populate POI dropdowns in recommendations and spatial analysis panels.
+ *  Uses already-loaded allPois data — no extra fetch needed. */
+function populatePoiSelects() {
   try {
-    const res  = await fetch(`${BACKEND_URL}/api/pois`);
-    const fc   = await res.json();
-    const pois = (fc.features || []).map(f => ({ id: f.id || f.properties?.id, name: f.properties?.name }))
-                                    .filter(p => p.id && p.name)
-                                    .sort((a, b) => a.name.localeCompare(b.name));
-    const selects = ["rec-poi-select", "overlap-poi-select"];
-    selects.forEach(selId => {
-      const sel = document.getElementById(selId);
-      if (!sel) return;
-      // Remove existing options beyond the placeholder
-      while (sel.options && sel.options.length > 1) sel.remove(1);
-      pois.forEach(p => {
-        const opt = document.createElement("calcite-option");
-        opt.value = String(p.id);
-        opt.textContent = p.name;
-        sel.appendChild(opt);
-      });
-    });
+    // Use allPois (already fetched by fetchPOIsData) if available,
+    // otherwise fall back to a fresh fetch.
+    const source = allPois.length > 0 ? allPois : null;
+    if (!source) {
+      // Fallback: fetch independently (e.g. if called before data is ready)
+      fetch(`${BACKEND_URL}/api/pois`)
+        .then(r => r.json())
+        .then(fc => _fillPoiSelects(fc.features || []))
+        .catch(e => console.warn("Could not populate POI selects:", e));
+      return;
+    }
+    _fillPoiSelects(source);
   } catch (e) {
     console.warn("Could not populate POI selects:", e);
   }
+}
+
+function _fillPoiSelects(features) {
+  const pois = features
+    .map(f => ({ id: f.id ?? f.properties?.id, name: f.properties?.name }))
+    .filter(p => p.id != null && p.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const selects = ["rec-poi-select", "overlap-poi-select"];
+  selects.forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    // Keep the first placeholder option only
+    while (sel.children.length > 1) sel.removeChild(sel.lastChild);
+    pois.forEach(p => {
+      const opt = document.createElement("calcite-option");
+      opt.value = String(p.id);
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+  });
 }
 
 /** Initialize the analysis graphics layer */
@@ -2977,11 +3072,9 @@ function hexToRgb(hex) {
   return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [100, 100, 200];
 }
 
-// ─── Initialize new panels on DOMContentLoaded ─────────────────────────────
+// ─── Initialize new panels — called from the main DOMContentLoaded ──────────
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Populate POI dropdowns (retry after POIs load)
-  setTimeout(populatePoiSelects, 1500);
+function initAnalysisPanels() {
 
   // Slider labels for spatial analysis panel
   const clusterRadiusSlider = document.getElementById("slider-cluster-radius");
@@ -3033,7 +3126,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnClrDens)  btnClrDens.addEventListener("click", clearDensityAnalysis);
   if (btnOverlap)  btnOverlap.addEventListener("click", runServiceAreaOverlap);
   if (btnClrOvlp)  btnClrOvlp.addEventListener("click", clearServiceAreaOverlap);
-});
+}
 
 // Handle map clicks for nearest facility mode
 // This hook integrates with the existing view.on("click") handler in initMap

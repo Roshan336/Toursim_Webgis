@@ -41,10 +41,7 @@
           <calcite-action id="action-pois"    text="Points of Interest"   icon="tour"         active aria-label="Show Points of Interest panel"></calcite-action>
           <calcite-action id="action-routing" text="Route Planner"        icon="road-sign"           aria-label="Show routing panel"></calcite-action>
           <calcite-action id="action-buffer"  text="Buffer Analysis"      icon="circle-area"         aria-label="Show buffer analysis panel"></calcite-action>
-          <calcite-action id="action-live"    text="Live OSM Data"        icon="satellite-2"         aria-label="Fetch live OpenStreetMap tourism data"></calcite-action>
-          <calcite-action id="action-upload"  text="Upload Shapefile"     icon="upload-to"           aria-label="Show shapefile upload panel"></calcite-action>
-          <calcite-action id="action-arcgis"  text="ArcGIS Online Search" icon="search"              aria-label="Show ArcGIS Online search panel"></calcite-action>
-          <calcite-action id="action-geojson" text="GeoJSON & GIS Filter" icon="layers"              aria-label="Show GeoJSON layers and filtering panel"></calcite-action>
+
           <calcite-action id="action-isochrones" text="Isochrone Maps" icon="time-zone" aria-label="Show Isochrone service panel"></calcite-action>
           <calcite-action id="action-recommend" text="Recommendations" icon="thumbs-up" aria-label="Show smart recommendations panel"></calcite-action>
           <calcite-action id="action-spatial-analysis" text="Spatial Analysis" icon="analysis" aria-label="Show PostGIS spatial analysis panel"></calcite-action>
@@ -177,311 +174,7 @@
           </div>
         </calcite-panel>
 
-        <!-- ── Tab 4: Live OSM Data (Overpass API) ───────────────── -->
-        <calcite-panel heading="Live OSM Data" id="panel-live" closed>
-          <div class="panel-content">
-            <calcite-notice open kind="brand" aria-label="Live OSM data instructions">
-              <div slot="title">OpenStreetMap Live Data</div>
-              <div slot="message">Fetch real-time tourism data directly from OpenStreetMap via the Overpass API. Select a district to load live POIs onto the map.</div>
-            </calcite-notice>
 
-            <div class="form-group">
-              <label for="overpass-district-select">District</label>
-              <calcite-select id="overpass-district-select" name="overpass_district" aria-label="Select district to fetch live OSM data">
-                <calcite-option value="all"       selected>All Kathmandu Valley</calcite-option>
-                <calcite-option value="kathmandu">Kathmandu</calcite-option>
-                <calcite-option value="lalitpur">Lalitpur (Patan)</calcite-option>
-                <calcite-option value="bhaktapur">Bhaktapur</calcite-option>
-              </calcite-select>
-            </div>
-
-            <calcite-button id="btn-fetch-overpass" width="full" appearance="solid" kind="brand" icon-start="satellite-2" aria-label="Fetch live OpenStreetMap data">
-              Fetch Live OSM Data
-            </calcite-button>
-
-            <calcite-button id="btn-clear-overpass" class="mt-8" width="full" appearance="outline" kind="neutral" aria-label="Clear live OSM layer from map">
-              Clear Live Layer
-            </calcite-button>
-
-            <div id="overpass-loader-container" class="loader-container" aria-live="polite">
-              <calcite-loader text="Fetching from OpenStreetMap..." aria-label="Fetching OSM data, please wait..."></calcite-loader>
-            </div>
-
-            <div id="overpass-results-container" class="results-container" aria-live="polite">
-              <div class="flex-row-space-between mb-4">
-                <h4 id="overpass-count-title" class="section-title">0 live POIs loaded</h4>
-                <div class="flex-row-gap-4">
-                  <calcite-button id="btn-download-overpass-geojson" appearance="solid" kind="neutral" icon-start="download" size="s">GeoJSON</calcite-button>
-                  <calcite-button id="btn-download-overpass-csv" appearance="solid" kind="neutral" icon-start="download" size="s">CSV</calcite-button>
-                </div>
-              </div>
-              <calcite-list id="overpass-results-list" aria-label="Live OSM points of interest">
-                <!-- Dynamically populated -->
-              </calcite-list>
-            </div>
-          </div>
-        </calcite-panel>
-
-        <!-- ── Tab 5: Shapefile Importer ────────────────────────── -->
-        <calcite-panel heading="Import Shapefile (ArcGIS SDK)" id="panel-upload" closed>
-          <div class="panel-content">
-            <calcite-notice open aria-label="Shapefile upload instructions">
-              <div slot="message">Upload a shapefile ZIP archive (containing .shp, .shx, .dbf, .prj) to import it as a PostGIS table using the ArcGIS Python SDK.</div>
-            </calcite-notice>
-
-            <div class="form-group">
-              <label for="upload-table-name">Target Table Name</label>
-              <calcite-input
-                id="upload-table-name"
-                name="table_name"
-                placeholder="e.g. ktm_heritage_zones"
-                value="ktm_imported_spots"
-                required
-                aria-label="PostgreSQL target table name for imported shapefile"
-                aria-required="true">
-              </calcite-input>
-            </div>
-
-            <div class="form-group">
-              <label for="upload-file-input">Shapefile ZIP File</label>
-              <input
-                type="file"
-                id="upload-file-input"
-                name="shapefile"
-                accept=".zip"
-                class="file-input-field"
-                aria-label="Select a ZIP file containing the shapefile components (.shp, .shx, .dbf, .prj)" />
-            </div>
-
-            <calcite-button id="btn-upload-shp" width="full" appearance="solid" kind="brand" icon-start="upload-to" aria-label="Upload and process shapefile into PostGIS">
-              Upload and Process
-            </calcite-button>
-
-            <div id="upload-loader-container" class="loader-container" aria-live="polite">
-              <calcite-loader text="Processing shapefile with ArcGIS Python SDK..." aria-label="Processing shapefile, please wait..."></calcite-loader>
-            </div>
-
-            <div id="upload-result-notice" class="result-notice" aria-live="polite">
-              <!-- Dynamically populated -->
-            </div>
-          </div>
-        </calcite-panel>
-
-        <!-- ── Tab 6: ArcGIS Online Search ──────────────────────── -->
-        <calcite-panel heading="ArcGIS Online Explorer" id="panel-arcgis" closed>
-          <div class="panel-content">
-            <calcite-notice open aria-label="ArcGIS Online search instructions">
-              <div slot="message">Query the ArcGIS Location Platform using the ArcGIS Python SDK for matching Nepal/Kathmandu tourism layers.</div>
-            </calcite-notice>
-
-            <calcite-input
-              id="arcgis-search-input"
-              name="arcgis_query"
-              placeholder="Search query (e.g. Kathmandu Nepal heritage)..."
-              value="tourism Kathmandu Nepal"
-              icon="search"
-              aria-label="Search query for ArcGIS Online tourism layers">
-            </calcite-input>
-
-            <calcite-button id="btn-arcgis-search" class="mt-8" width="full" appearance="solid" kind="brand" icon-start="search" aria-label="Search for matching ArcGIS Online layers">
-              Search Layers
-            </calcite-button>
-
-            <div id="arcgis-loader-container" class="loader-container" aria-live="polite">
-              <calcite-loader text="Searching ArcGIS Online..." aria-label="Searching ArcGIS Online, please wait..."></calcite-loader>
-            </div>
-
-            <calcite-list id="arcgis-results-list" class="arcgis-results" aria-label="ArcGIS Online search results" aria-live="polite">
-              <!-- Dynamically populated -->
-            </calcite-list>
-          </div>
-        </calcite-panel>
-
-        <!-- ── Tab 7: GeoJSON Layers & GIS Filter (Select by Attribute/Location) ── -->
-        <calcite-panel heading="GIS Analysis & Layers" id="panel-geojson" closed>
-          <div class="panel-content">
-            <calcite-notice open class="mb-8" aria-label="GIS Tool instructions">
-              <div slot="message">Explore Nepal administrative boundaries (Province, District, GapaNapa), identify features by clicking, and run spatial or attribute queries.</div>
-            </calcite-notice>
-
-            <!-- Section 1: Layers Toggle -->
-            <calcite-block heading="GeoJSON Layer Selector" summary="Toggle and customize layers" collapsible open>
-              <calcite-icon slot="icon" icon="layers" size="s"></calcite-icon>
-              
-              <div class="layer-toggle-row">
-                <calcite-label layout="inline">
-                  <calcite-switch id="chk-layer-province" name="layer_province"></calcite-switch>
-                  Provinces (Nepal)
-                </calcite-label>
-                <div class="layer-control-sub">
-                  <label for="slider-opacity-province">Opacity</label>
-                  <calcite-slider id="slider-opacity-province" min="0" max="100" value="40" step="5" label-handles></calcite-slider>
-                </div>
-              </div>
-
-              <div class="layer-toggle-row mt-8">
-                <calcite-label layout="inline">
-                  <calcite-switch id="chk-layer-district" name="layer_district"></calcite-switch>
-                  Districts (Nepal)
-                </calcite-label>
-                <div class="layer-control-sub">
-                  <label for="slider-opacity-district">Opacity</label>
-                  <calcite-slider id="slider-opacity-district" min="0" max="100" value="40" step="5" label-handles></calcite-slider>
-                </div>
-              </div>
-
-              <div class="layer-toggle-row mt-8">
-                <calcite-label layout="inline">
-                  <calcite-switch id="chk-layer-gapanapa" name="layer_gapanapa"></calcite-switch>
-                  GapaNapa (Local Units)
-                </calcite-label>
-                <div class="layer-control-sub">
-                  <label for="slider-opacity-gapanapa">Opacity</label>
-                  <calcite-slider id="slider-opacity-gapanapa" min="0" max="100" value="30" step="5" label-handles></calcite-slider>
-                </div>
-              </div>
-
-              <div class="form-group mt-8">
-                <calcite-label layout="inline">
-                  <calcite-checkbox id="chk-simplify-geom" checked></calcite-checkbox>
-                  Enable optimization (simplified geometry for speed)
-                </calcite-label>
-              </div>
-            </calcite-block>
-
-            <!-- Section 2: Identify by Location -->
-            <calcite-block heading="Search by Location (Identify)" summary="Click map to query boundary information" collapsible>
-              <calcite-icon slot="icon" icon="object-detection" size="s"></calcite-icon>
-              
-              <calcite-button id="btn-toggle-identify" width="full" appearance="outline" kind="brand" icon-start="pin" aria-label="Toggle click-to-identify tool">
-                Enable Click-to-Identify
-              </calcite-button>
-
-              <div id="identify-results-card" class="results-container mt-8 hidden">
-                <calcite-card>
-                  <div slot="header"><b>Clicked Location Details</b></div>
-                  <div id="identify-details" class="identify-details-list">
-                    <!-- Populated dynamically -->
-                  </div>
-                </calcite-card>
-              </div>
-            </calcite-block>
-
-            <!-- Section 3: Select by Attribute -->
-            <calcite-block heading="Select by Attribute" summary="Filter layers using SQL-like attribute queries" collapsible>
-              <calcite-icon slot="icon" icon="filter" size="s"></calcite-icon>
-              
-              <div class="form-group">
-                <label for="attr-layer-select">Target Layer</label>
-                <calcite-select id="attr-layer-select" name="attr_layer" width="full">
-                  <calcite-option value="pois" selected>Tourist POIs</calcite-option>
-                  <calcite-option value="province_layer">Province Layer</calcite-option>
-                  <calcite-option value="district_layer">District Layer</calcite-option>
-                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="attr-key-select">Field / Property</label>
-                <calcite-select id="attr-key-select" name="attr_key" width="full">
-                  <!-- Dynamically populated or updated based on selected layer -->
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="attr-operator-select">Operator</label>
-                <calcite-select id="attr-operator-select" name="attr_operator" width="full">
-                  <calcite-option value="contains" selected>Contains (text)</calcite-option>
-                  <calcite-option value="equals">Equals (=)</calcite-option>
-                  <calcite-option value="starts_with">Starts with (text)</calcite-option>
-                  <calcite-option value="ends_with">Ends with (text)</calcite-option>
-                  <calcite-option value="greater_than">Greater than (&gt;)</calcite-option>
-                  <calcite-option value="less_than">Less than (&lt;)</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="attr-value-input">Value</label>
-                <calcite-input id="attr-value-input" name="attr_value" placeholder="Enter query value..." required></calcite-input>
-              </div>
-
-              <div class="form-group">
-                <label>SQL Preview</label>
-                <pre id="attr-sql-preview" class="sql-preview-block">SELECT * FROM pois WHERE name ILIKE '%...%';</pre>
-              </div>
-
-              <calcite-button id="btn-run-attribute-query" width="full" appearance="solid" kind="brand" icon-start="filter">
-                Select by Attribute
-              </calcite-button>
-            </calcite-block>
-
-            <!-- Section 4: Select by Location (Spatial Filter) -->
-            <calcite-block heading="Select by Location (Spatial Filter)" summary="Query spatial relationship between two layers" collapsible>
-              <calcite-icon slot="icon" icon="spatial-selection" size="s"></calcite-icon>
-              
-              <div class="form-group">
-                <label for="spatial-target-select">Target Layer (Select from)</label>
-                <calcite-select id="spatial-target-select" name="spatial_target" width="full">
-                  <calcite-option value="pois" selected>Tourist POIs</calcite-option>
-                  <calcite-option value="district_layer">District Layer</calcite-option>
-                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="spatial-relation-select">Spatial Relationship</label>
-                <calcite-select id="spatial-relation-select" name="spatial_relation" width="full">
-                  <calcite-option value="intersects" selected>Intersects</calcite-option>
-                  <calcite-option value="contains">Contains (Source contains Target)</calcite-option>
-                  <calcite-option value="within">Within (Target within Source)</calcite-option>
-                  <calcite-option value="touches">Touches</calcite-option>
-                  <calcite-option value="within_distance">Within Distance of</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="spatial-source-select">Source Layer</label>
-                <calcite-select id="spatial-source-select" name="spatial_source" width="full">
-                  <calcite-option value="province_layer" selected>Province Layer</calcite-option>
-                  <calcite-option value="district_layer">District Layer</calcite-option>
-                  <calcite-option value="gapanapa_layer">GapaNapa Layer</calcite-option>
-                  <calcite-option value="pois">Tourist POIs</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group">
-                <label for="spatial-source-feature-select">Source Feature (Optional)</label>
-                <calcite-select id="spatial-source-feature-select" name="spatial_source_feature" width="full">
-                  <calcite-option value="" selected>-- All features --</calcite-option>
-                </calcite-select>
-              </div>
-
-              <div class="form-group hidden" id="spatial-distance-group">
-                <label for="spatial-distance-input">Search Distance (meters)</label>
-                <calcite-input id="spatial-distance-input" type="number" name="spatial_distance" value="1000" min="0" step="100"></calcite-input>
-              </div>
-
-              <calcite-button id="btn-run-spatial-query" width="full" appearance="solid" kind="brand" icon-start="spatial-selection">
-                Select by Location
-              </calcite-button>
-            </calcite-block>
-
-            <!-- Results container for analysis queries -->
-            <div id="gis-results-container" class="results-container mt-8 hidden" aria-live="polite">
-              <div class="flex-row-space-between mb-4">
-                <h4 id="gis-results-title" class="section-title">Query Results</h4>
-                <div class="flex-row-gap-4">
-                  <calcite-button id="btn-export-gis-csv" appearance="solid" kind="neutral" icon-start="download" size="s">Export CSV</calcite-button>
-                  <calcite-button id="btn-clear-gis-results" appearance="transparent" kind="neutral" icon-start="erase" size="s">Clear Selection</calcite-button>
-                </div>
-              </div>
-              <calcite-list id="gis-results-list" aria-label="Query selection results">
-                <!-- Dynamically populated -->
-              </calcite-list>
-            </div>
-
-          </div>
-        </calcite-panel>
 
         <!-- ── Tab 8: ORS Isochrones Service ────────────────────── -->
         <calcite-panel heading="Isochrone analysis" id="panel-isochrones" closed>
@@ -695,6 +388,233 @@
       </calcite-shell-panel>
 
     </calcite-shell>
+
+    <!-- FLOATING RIGHT DRAWER: Map Layers & Explore -->
+    <button id="btn-open-layers-drawer" class="layers-drawer-fab" aria-label="Open map layers panel" title="Map Layers & Explore">
+      <calcite-icon icon="layers" scale="m"></calcite-icon>
+    </button>
+
+    <div id="layers-drawer-backdrop" class="layers-drawer-backdrop hidden" aria-hidden="true"></div>
+
+    <aside id="layers-drawer" class="layers-drawer" aria-label="Map Layers & Explore" role="complementary">
+      <!-- Drawer Header -->
+      <div class="layers-drawer-header">
+        <div class="layers-drawer-header-left">
+          <calcite-icon icon="layers" scale="s"></calcite-icon>
+          <span class="layers-drawer-title">Map Layers & Explore</span>
+        </div>
+        <button id="btn-close-layers-drawer" class="layers-drawer-close" aria-label="Close panel">
+          <calcite-icon icon="x" scale="s"></calcite-icon>
+        </button>
+      </div>
+
+      <div class="layers-drawer-body">
+
+        <!-- ── Section 1: Map Overlays ──────────────────── -->
+        <div class="ld-section">
+          <div class="ld-section-header" data-section="layers">
+            <calcite-icon icon="map-pin" scale="s"></calcite-icon>
+            <span>Map Overlays</span>
+            <span class="ld-section-hint">Show boundaries on the map</span>
+            <calcite-icon icon="chevron-down" scale="s" class="ld-chevron"></calcite-icon>
+          </div>
+          <div class="ld-section-body" id="ld-body-layers">
+            <p class="ld-help-text">Toggle these to see Nepal's administrative boundaries overlaid on the map.</p>
+
+            <div class="ld-layer-card">
+              <div class="ld-layer-row">
+                <div class="ld-layer-color" style="background:#6366f1;"></div>
+                <span class="ld-layer-name">Provinces</span>
+                <calcite-switch id="chk-layer-province" name="layer_province" scale="s"></calcite-switch>
+              </div>
+              <div class="ld-layer-slider">
+                <span class="ld-slider-label">Transparency</span>
+                <calcite-slider id="slider-opacity-province" min="0" max="100" value="40" step="5" scale="s"></calcite-slider>
+              </div>
+            </div>
+
+            <div class="ld-layer-card">
+              <div class="ld-layer-row">
+                <div class="ld-layer-color" style="background:#f59e0b;"></div>
+                <span class="ld-layer-name">Districts</span>
+                <calcite-switch id="chk-layer-district" name="layer_district" scale="s"></calcite-switch>
+              </div>
+              <div class="ld-layer-slider">
+                <span class="ld-slider-label">Transparency</span>
+                <calcite-slider id="slider-opacity-district" min="0" max="100" value="40" step="5" scale="s"></calcite-slider>
+              </div>
+            </div>
+
+            <div class="ld-layer-card">
+              <div class="ld-layer-row">
+                <div class="ld-layer-color" style="background:#10b981;"></div>
+                <span class="ld-layer-name">Local Units (GapaNapa)</span>
+                <calcite-switch id="chk-layer-gapanapa" name="layer_gapanapa" scale="s"></calcite-switch>
+              </div>
+              <div class="ld-layer-slider">
+                <span class="ld-slider-label">Transparency</span>
+                <calcite-slider id="slider-opacity-gapanapa" min="0" max="100" value="30" step="5" scale="s"></calcite-slider>
+              </div>
+            </div>
+
+            <div class="ld-layer-card ld-opt-row">
+              <calcite-label layout="inline" scale="s">
+                <calcite-checkbox id="chk-simplify-geom" checked scale="s"></calcite-checkbox>
+                <span>Fast mode <span class="ld-opt-hint">(simplified shapes, loads faster)</span></span>
+              </calcite-label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 2: What's Here? (Identify) ──────── -->
+        <div class="ld-section">
+          <div class="ld-section-header" data-section="identify">
+            <calcite-icon icon="pin" scale="s"></calcite-icon>
+            <span>What's Here?</span>
+            <span class="ld-section-hint">Click the map to learn about a location</span>
+            <calcite-icon icon="chevron-down" scale="s" class="ld-chevron"></calcite-icon>
+          </div>
+          <div class="ld-section-body collapsed" id="ld-body-identify">
+            <p class="ld-help-text">Enable the tool below, then click anywhere on the map to see which Province, District, and Local Unit it belongs to.</p>
+            <calcite-button id="btn-toggle-identify" width="full" appearance="outline" kind="brand" icon-start="pin" scale="s">
+              Enable Click-to-Identify
+            </calcite-button>
+            <div id="identify-results-card" class="results-container mt-8 hidden">
+              <calcite-card>
+                <div slot="header"><b>Location Details</b></div>
+                <div id="identify-details" class="identify-details-list"></div>
+              </calcite-card>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 3: Search by Name (Attribute) ────── -->
+        <div class="ld-section">
+          <div class="ld-section-header" data-section="attribute">
+            <calcite-icon icon="search" scale="s"></calcite-icon>
+            <span>Search by Name</span>
+            <span class="ld-section-hint">Find places by typing a name or value</span>
+            <calcite-icon icon="chevron-down" scale="s" class="ld-chevron"></calcite-icon>
+          </div>
+          <div class="ld-section-body collapsed" id="ld-body-attribute">
+            <p class="ld-help-text">Choose a map layer, pick a field like "Name", and type a keyword to find matching places.</p>
+
+            <div class="form-group">
+              <label for="attr-layer-select">Look in</label>
+              <calcite-select id="attr-layer-select" name="attr_layer" width="full" scale="s">
+                <calcite-option value="pois" selected>Tourist Places</calcite-option>
+                <calcite-option value="province_layer">Provinces</calcite-option>
+                <calcite-option value="district_layer">Districts</calcite-option>
+                <calcite-option value="gapanapa_layer">Local Units</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="attr-key-select">Field</label>
+              <calcite-select id="attr-key-select" name="attr_key" width="full" scale="s"></calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="attr-operator-select">Match type</label>
+              <calcite-select id="attr-operator-select" name="attr_operator" width="full" scale="s">
+                <calcite-option value="contains" selected>Contains</calcite-option>
+                <calcite-option value="equals">Exact match</calcite-option>
+                <calcite-option value="starts_with">Starts with</calcite-option>
+                <calcite-option value="ends_with">Ends with</calcite-option>
+                <calcite-option value="greater_than">Greater than</calcite-option>
+                <calcite-option value="less_than">Less than</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="attr-value-input">Search for</label>
+              <calcite-input id="attr-value-input" name="attr_value" placeholder="e.g. Kathmandu, Lalitpur..." required scale="s"></calcite-input>
+            </div>
+
+            <details class="ld-advanced-toggle">
+              <summary>Show SQL preview</summary>
+              <pre id="attr-sql-preview" class="sql-preview-block">SELECT * FROM pois WHERE name ILIKE '%...%';</pre>
+            </details>
+
+            <calcite-button id="btn-run-attribute-query" width="full" appearance="solid" kind="brand" icon-start="search" scale="s">
+              Search
+            </calcite-button>
+          </div>
+        </div>
+
+        <!-- ── Section 4: Find Nearby (Spatial Filter) ──── -->
+        <div class="ld-section">
+          <div class="ld-section-header" data-section="spatial">
+            <calcite-icon icon="compass" scale="s"></calcite-icon>
+            <span>Find Nearby</span>
+            <span class="ld-section-hint">Discover places within a region</span>
+            <calcite-icon icon="chevron-down" scale="s" class="ld-chevron"></calcite-icon>
+          </div>
+          <div class="ld-section-body collapsed" id="ld-body-spatial">
+            <p class="ld-help-text">Select places from one layer that overlap or are near features in another layer — for example, "Find tourist spots inside Lalitpur District".</p>
+
+            <div class="form-group">
+              <label for="spatial-target-select">Find places from</label>
+              <calcite-select id="spatial-target-select" name="spatial_target" width="full" scale="s">
+                <calcite-option value="pois" selected>Tourist Places</calcite-option>
+                <calcite-option value="district_layer">Districts</calcite-option>
+                <calcite-option value="gapanapa_layer">Local Units</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="spatial-relation-select">That are</label>
+              <calcite-select id="spatial-relation-select" name="spatial_relation" width="full" scale="s">
+                <calcite-option value="intersects" selected>Inside or touching</calcite-option>
+                <calcite-option value="contains">Containing</calcite-option>
+                <calcite-option value="within">Completely inside</calcite-option>
+                <calcite-option value="touches">Touching the border of</calcite-option>
+                <calcite-option value="within_distance">Within a distance of</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="spatial-source-select">This region</label>
+              <calcite-select id="spatial-source-select" name="spatial_source" width="full" scale="s">
+                <calcite-option value="province_layer" selected>Provinces</calcite-option>
+                <calcite-option value="district_layer">Districts</calcite-option>
+                <calcite-option value="gapanapa_layer">Local Units</calcite-option>
+                <calcite-option value="pois">Tourist Places</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group">
+              <label for="spatial-source-feature-select">Specific area (optional)</label>
+              <calcite-select id="spatial-source-feature-select" name="spatial_source_feature" width="full" scale="s">
+                <calcite-option value="" selected>All areas</calcite-option>
+              </calcite-select>
+            </div>
+
+            <div class="form-group hidden" id="spatial-distance-group">
+              <label for="spatial-distance-input">Distance (meters)</label>
+              <calcite-input id="spatial-distance-input" type="number" name="spatial_distance" value="1000" min="0" step="100" scale="s"></calcite-input>
+            </div>
+
+            <calcite-button id="btn-run-spatial-query" width="full" appearance="solid" kind="brand" icon-start="compass" scale="s">
+              Find Places
+            </calcite-button>
+          </div>
+        </div>
+
+        <!-- ── Results ──────────────────────────────────── -->
+        <div id="gis-results-container" class="results-container mt-8 hidden" aria-live="polite" style="padding: 0 16px 16px;">
+          <div class="flex-row-space-between mb-4">
+            <h4 id="gis-results-title" class="section-title">Results</h4>
+            <div class="flex-row-gap-4">
+              <calcite-button id="btn-export-gis-csv" appearance="solid" kind="neutral" icon-start="download" size="s">CSV</calcite-button>
+              <calcite-button id="btn-clear-gis-results" appearance="transparent" kind="neutral" icon-start="erase" size="s">Clear</calcite-button>
+            </div>
+          </div>
+          <calcite-list id="gis-results-list" aria-label="Query results"></calcite-list>
+        </div>
+
+      </div>
+    </aside>
 
     <!-- LAYER 1.5: Floating Address Geocoder Search -->
     <div id="geocoder-search-container" class="map-overlay-card geocoder-card" role="search" aria-label="Address search">

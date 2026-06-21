@@ -87,6 +87,23 @@ CREATE INDEX pois_district_idx ON pois (district);
 CREATE INDEX pois_category_idx ON pois (category);
 
 -- ═══════════════════════════════════════════════════════════════════
+-- 2b. Tourist Login/Profile Table
+--    Stores lightweight tourist profile data captured at login
+-- ═══════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS tourists (
+    id             SERIAL PRIMARY KEY,
+    full_name      VARCHAR(120),
+    gmail          VARCHAR(255) UNIQUE NOT NULL,
+    country        VARCHAR(80),
+    travel_style   VARCHAR(60),
+    first_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    login_count    INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS tourists_gmail_idx ON tourists (gmail);
+
+-- ═══════════════════════════════════════════════════════════════════
 -- 2. Roads Table (pgRouting topology)
 -- ═══════════════════════════════════════════════════════════════════
 CREATE TABLE roads (

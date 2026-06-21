@@ -251,10 +251,11 @@ def calculate_route(start_lon, start_lat, end_lon, end_lat):
 def get_buffer_pois(
     lon: float = Query(..., description="Center point longitude"),
     lat: float = Query(..., description="Center point latitude"),
-    distance: float = Query(..., ge=1, le=50000, description="Buffer distance in meters")
+    distance: float = Query(..., ge=1, le=50000, description="Buffer distance in meters"),
+    category: Optional[str] = Query(None, description="Category filter (e.g., heritage, temple, hotel)")
 ):
     try:
-        result = get_pois_within_buffer(lon, lat, distance)
+        result = get_pois_within_buffer(lon, lat, distance, category)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Buffer analysis failed: {str(e)}")

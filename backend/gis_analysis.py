@@ -1,7 +1,54 @@
 import os
+import sys
+import types
 import zipfile
 import tempfile
 import shutil
+
+from packaging.version import parse as parse_version
+
+
+# ArcGIS 2.4.x still imports distutils.version, which Python 3.12 removed.
+if "distutils.version" not in sys.modules:
+    distutils_module = types.ModuleType("distutils")
+    distutils_version_module = types.ModuleType("distutils.version")
+
+    class LooseVersion:
+        def __init__(self, vstring=None):
+            self.vstring = str(vstring)
+            self.version = parse_version(self.vstring)
+
+        def _coerce(self, other):
+            if isinstance(other, LooseVersion):
+                return other.version
+            return parse_version(str(other))
+
+        def __str__(self):
+            return self.vstring
+
+        def __repr__(self):
+            return f"LooseVersion('{self.vstring}')"
+
+        def __lt__(self, other):
+            return self.version < self._coerce(other)
+
+        def __le__(self, other):
+            return self.version <= self._coerce(other)
+
+        def __eq__(self, other):
+            return self.version == self._coerce(other)
+
+        def __ge__(self, other):
+            return self.version >= self._coerce(other)
+
+        def __gt__(self, other):
+            return self.version > self._coerce(other)
+
+    distutils_version_module.LooseVersion = LooseVersion
+    distutils_module.version = distutils_version_module
+    sys.modules["distutils"] = distutils_module
+    sys.modules["distutils.version"] = distutils_version_module
+
 from arcgis.gis import GIS
 from arcgis.features import GeoAccessor
 from backend.db import get_connection
